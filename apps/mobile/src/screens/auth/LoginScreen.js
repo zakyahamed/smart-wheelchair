@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   Alert,
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -9,6 +10,8 @@ import {
 } from "react-native";
 
 import { auth } from "../../firebase/config";
+
+const loginImage = require("../../../assets/login-wheelchair.png");
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -30,9 +33,14 @@ export default function LoginScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      <Image
+        source={loginImage}
+        style={styles.loginImage}
+        resizeMode="contain"
+      />
 
       <Text style={styles.title}>
-        Smart Wheelchair Login
+        Smart Wheelchair
       </Text>
 
       <TextInput
@@ -40,7 +48,7 @@ export default function LoginScreen({ navigation }) {
         value={email}
         onChangeText={setEmail}
         style={styles.input}
-        placeholderTextColor="#999"
+        placeholderTextColor="#b5b3b3"
       />
 
       <TextInput
@@ -49,7 +57,7 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setPassword}
         secureTextEntry
         style={styles.input}
-        placeholderTextColor="#999"
+        placeholderTextColor="#b5b3b3"
       />
 
       <TouchableOpacity style={styles.button} onPress={handleLogin}>
@@ -69,13 +77,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     padding: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#dcf1f2",
   },
   title: {
     fontSize: 22,
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
+  },
+  loginImage: {
+    alignSelf: "center",
+    height: 180,
+    marginBottom: 20,
+    width: 220,
   },
   input: {
     borderWidth: 1,
