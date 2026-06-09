@@ -1,0 +1,41 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function isCaregiver() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "caregiver";
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow read, update: if isOwner(userId) || isCaregiver();
+    }
+
+    match /requests/{requestId} {
+      allow create: if signedIn()
+        && request.resource.data.patientId == request.auth.uid;
+      allow read: if signedIn()
+        && (resource.data.patientId == request.auth.uid || isCaregiver());
+      allow update: if signedIn()
+        && (resource.data.patientId == request.auth.uid || isCaregiver());
+    }
+
+    match /patients/{patientId} {
+      allow read, write: if signedIn();
+    }
+
+    match /wheelchairs/{wheelchairId} {
+      allow read, write: if signedIn();
+    }
+  }
+}
