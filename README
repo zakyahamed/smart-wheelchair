@@ -1,890 +1,132 @@
 # Smart Robotic Wheelchair Management System
 
-## Complete Project Setup Guide for the Developer
+A cross-platform smart wheelchair management solution designed to streamline patient transportation in healthcare environments. The system integrates mobile applications, a web dashboard, and robotic wheelchairs through a centralized Firebase backend.
 
-**Version:** MVP v1.0
+## Features
 
-**Tech Stack**
+### Mobile App
 
-- React Native (Expo) - Mobile App
-- React (Vite) - Web Dashboard
-- Firebase
-  - Authentication
-  - Firestore
-  - Storage
-  - Cloud Messaging (Future)
+**Patient**
 
-- GitHub
-- VS Code
+* Request a wheelchair
+* Track live wheelchair status
+* View request history
 
----
+**Caregiver**
 
-# 1. Project Overview
+* Manage patients
+* Manage wheelchairs
+* Monitor active requests
 
-The system consists of three modules:
+### Web Dashboard
 
-## Mobile App
+* Real-time operational dashboard
+* Patient and wheelchair management
+* Usage reports and analytics
 
-### Patient
+### Robot Integration
 
-- Login
-- Request wheelchair
-- Track wheelchair
-- View history
+* Receive wheelchair requests
+* Update navigation and trip status
+* Synchronize with the central system
 
-### Caregiver
+## Tech Stack
 
-- Login
-- Add patients
-- Add wheelchairs
-- Manage patients
+* **Mobile:** React Native (Expo)
+* **Web:** React (Vite)
+* **Backend:** Firebase Authentication, Firestore, Storage
+* **Database:** Cloud Firestore
+* **Version Control:** Git & GitHub
 
----
-
-## Web Dashboard
-
-### Admin
-
-- Dashboard
-
-- Patient Management
-
-- Wheelchair Management
-
-- Reports
-
-- Analytics
-
----
-
-## Robot
-
-- Listen for requests
-
-- Navigate
-
-- Update status
-
----
-
-# 2. Development Environment
-
-Install:
-
-## NodeJS
-
-Latest LTS
-
-Check:
-
-```
-node -v
-
-npm -v
-```
-
----
-
-## Git
-
-```
-git --version
-```
-
----
-
-## VS Code
-
-Extensions:
-
-Firebase
-
-ESLint
-
-Prettier
-
-GitLens
-
-Expo Tools
-
----
-
-## Expo
-
-```
-npm install -g expo-cli
-```
-
----
-
-# 3. Create Project
-
-```
-mkdir smart-wheelchair
-
-cd smart-wheelchair
-```
-
----
-
-# 4. Create Folder Structure
+## Project Structure
 
 ```
 smart-wheelchair/
-
-apps/
-
-mobile/
-
-web/
-
-packages/
-
-shared/
-
-firebase/
-
-robot/
-
-docs/
-
-README.md
-```
-
----
-
-# 5. Mobile App
-
-```
-cd apps
-
-npx create-expo-app mobile
-```
-
-Install:
-
-```
-npm install firebase
-
-npm install @react-navigation/native
-
-npm install @react-navigation/native-stack
-
-npx expo install react-native-screens
-
-npx expo install react-native-safe-area-context
-```
-
----
-
-# 6. Web App
-
-```
-cd apps
-
-npm create vite@latest web
-
-React
-
-JavaScript
-
-cd web
-
-npm install
-```
-
-Install:
-
-```
-npm install firebase
-
-npm install react-router-dom
-```
-
----
-
-# 7. Shared Package
-
-Create:
-
-```
-packages/shared
-```
-
-Contains:
-
-```
-models
-
-constants
-
-helpers
-
-validation
-```
-
----
-
-# 8. Firebase
-
-Create Firebase Project.
-
-Enable:
-
-Authentication
-
-Firestore
-
-Storage
-
----
-
-Authentication:
-
-Enable:
-
-```
-Email Password
-```
-
----
-
-Firestore:
-
-Production mode.
-
----
-
-# 9. Firebase Collections
-
-## Users
-
-```
-users
-
-uid
-
-name
-
-email
-
-role
-```
-
-Roles:
-
-```
-patient
-
-caregiver
-
-admin
-```
-
----
-
-## Patients
-
-```
-patients
-
-patientId
-
-name
-
-room
-
-caregiverId
-
-wheelchairId
-```
-
----
-
-## Wheelchairs
-
-```
-wheelchairs
-
-chairId
-
-status
-
-battery
-
-location
-```
-
-Status:
-
-```
-Available
-
-Moving
-
-Occupied
-
-Charging
-```
-
----
-
-## Requests
-
-```
-requests
-
-requestId
-
-patientId
-
-chairId
-
-status
-
-time
-```
-
----
-
-# 10. Mobile Screens
-
-## Authentication
-
-```
-Login
-
-Register
-```
-
----
-
-## Patient
-
-```
-Home
-
-Request Chair
-
-Track Chair
-
-History
-
-Profile
-```
-
----
-
-## Caregiver
-
-```
-Dashboard
-
-Patients
-
-Add Patient
-
-Wheelchairs
-
-Add Wheelchair
-
-Profile
-```
-
----
-
-# 11. Web Pages
-
-```
-Dashboard
-
-Patients
-
-Wheelchairs
-
-Reports
-
-Analytics
-
-Settings
-```
-
----
-
-# 12. Authentication Flow
-
-```
-Login
-
-↓
-
-Firebase Authentication
-
-↓
-
-Get User
-
-↓
-
-Firestore
-
-↓
-
-Role
-
-↓
-
-Navigate
-```
-
-Patient:
-
-```
-Patient Home
-```
-
-Caregiver:
-
-```
-Caregiver Dashboard
-```
-
-Admin:
-
-```
-Web Dashboard
-```
-
----
-
-# 13. Patient Workflow
-
-```
-Login
-
-↓
-
-Home
-
-↓
-
-Request Chair
-
-↓
-
-Firebase
-
-↓
-
-Robot
-
-↓
-
-Moving
-
-↓
-
-Arrived
-
-↓
-
-Complete
-```
-
----
-
-# 14. Caregiver Workflow
-
-```
-Login
-
-↓
-
-Dashboard
-
-↓
-
-Add Patient
-
-↓
-
-Add Chair
-
-↓
-
-Manage Records
-```
-
----
-
-# 15. Robot Workflow
-
-```
-Check Firebase
-
-↓
-
-Pending Request
-
-↓
-
-Assign Chair
-
-↓
-
-Navigate
-
-↓
-
-Update Status
-
-↓
-
-Arrive
-
-↓
-
-Complete
-```
-
----
-
-# 16. Firestore Request Status
-
-```
-Pending
-
-↓
-
-Assigned
-
-↓
-
-Moving
-
-↓
-
-Arrived
-
-↓
-
-Occupied
-
-↓
-
-Completed
-```
-
----
-
-# 17. Mobile Navigation
-
-Patient
-
-```
-Home
-
-Request
-
-History
-
-Profile
-```
-
-Caregiver
-
-```
-Dashboard
-
-Patients
-
-Wheelchairs
-
-Profile
-```
-
----
-
-# 18. Web Dashboard
-
-Dashboard:
-
-Show:
-
-```
-Total Patients
-
-Available Chairs
-
-Active Requests
-
-Completed Trips
-```
-
----
-
-Patients:
-
-```
-Add
-
-Edit
-
-Delete
-```
-
----
-
-Wheelchairs:
-
-```
-Add
-
-Edit
-
-Maintenance
-```
-
----
-
-Reports:
-
-```
-Daily
-
-Weekly
-
-Monthly
-```
-
----
-
-# 19. Shared Services
-
-Authentication
-
-Patient
-
-Wheelchair
-
-Request
-
-Notification
-
----
-
-# 20. Robot Integration
-
-Robot reads:
-
-```
-requests
-```
-
-Robot updates:
-
-```
-wheelchairs
-```
-
-Robot updates:
-
-```
-requests
-```
-
----
-
-# 21. Reports
-
-Generate:
-
-Patient Usage
-
-Chair Usage
-
-Average Response Time
-
-Total Trips
-
-Active Chairs
-
-Maintenance Alerts
-
----
-
-# 22. Testing
-
-Authentication
-
-Patient Management
-
-Chair Management
-
-Request Creation
-
-Robot Updates
-
-Dashboard
-
-Reports
-
----
-
-# 23. Git Branch Strategy
-
-```
-main
-
-develop
-
-feature/auth
-
-feature/patient
-
-feature/caregiver
-
-feature/wheelchair
-
-feature/dashboard
-
-feature/reports
-
-feature/robot
-```
-
----
-
-# 24. Milestones
-
-## Milestone 1
-
-- Firebase
-- Authentication
-- Navigation
-
----
-
-## Milestone 2
-
-- Caregiver
-- Patient CRUD
-
----
-
-## Milestone 3
-
-- Wheelchair CRUD
-
----
-
-## Milestone 4
-
-- Patient Request
-
----
-
-## Milestone 5
-
-- Robot Integration
-
----
-
-## Milestone 6
-
-- Web Dashboard
-
----
-
-## Milestone 7
-
-- Reports
-
----
-
-## Milestone 8
-
-- Testing
-
----
-
-# 25. MVP Features Checklist
-
-## Mobile
-
-### Patient
-
-- ✅ Login
-- ✅ Request wheelchair
-- ✅ Track status
-- ✅ View history
-
-### Caregiver
-
-- ✅ Login
-- ✅ Add patient
-- ✅ Edit patient
-- ✅ Add wheelchair
-- ✅ Manage wheelchairs
-
-## Web
-
-- ✅ Admin dashboard
-- ✅ Patient management
-- ✅ Wheelchair management
-- ✅ Reports
-- ✅ Analytics
-
-## Robot
-
-- ✅ Receive request
-- ✅ Navigate
-- ✅ Update status
-- ✅ Complete request
-
----
-
-# Recommended Monorepo (Slight Improvement)
-
-For long-term maintainability, structure the project like this:
-
-```
-smart-wheelchair/
-│
 ├── apps/
-│   ├── mobile/        # Expo app
-│   └── web/           # React + Vite dashboard
-│
+│   ├── mobile/
+│   └── web/
 ├── packages/
-│   ├── firebase/      # Shared Firebase config
-│   ├── shared/        # Types, constants, utilities
-│   └── ui/            # Reusable UI components
-│
+│   ├── firebase/
+│   ├── shared/
+│   └── ui/
 ├── robot/
-│   ├── controller/
-│   └── simulator/
-│
 ├── docs/
-│   ├── architecture.md
-│   ├── api.md
-│   └── setup.md
-│
 ├── firestore.rules
 ├── firestore.indexes.json
 ├── .env.example
-├── package.json
 └── README.md
 ```
 
-## Core MVP Workflow
+## Core Workflow
 
-1. **Caregiver** logs in and registers patients and wheelchairs.
-2. **Patient** logs into the mobile app.
-3. Patient taps **Request Wheelchair**.
-4. A request is created in Firebase.
-5. The **robot controller** detects the request and begins navigation.
-6. The robot updates its status (`Assigned → Moving → Arrived`).
-7. The patient receives live updates.
-8. The web dashboard provides administrators with real-time monitoring, wheelchair utilization statistics, and operational reports.
+1. Caregiver registers patients and wheelchairs.
+2. Patient requests a wheelchair through the mobile app.
+3. A request is created in Firebase.
+4. The robotic wheelchair system processes the request.
+5. Live status updates are synchronized across mobile and web applications.
+6. Administrators monitor operations through the dashboard.
 
-This architecture keeps the mobile app, web dashboard, and robotic wheelchair synchronized through a single Firebase backend while remaining straightforward enough for an MVP and extensible for future hospital-scale deployments.
+## Getting Started
+
+### Clone the repository
+
+```bash
+git clone <repository-url>
+cd smart-wheelchair
+```
+
+### Install dependencies
+
+Mobile:
+
+```bash
+cd apps/mobile
+npm install
+```
+
+Web:
+
+```bash
+cd apps/web
+npm install
+```
+
+### Configure Firebase
+
+Create a `.env` file using `.env.example` and add your Firebase configuration.
+
+### Start the applications
+
+Mobile:
+
+```bash
+npx expo start
+```
+
+Web:
+
+```bash
+npm run dev
+```
+
+## MVP Features
+
+* Patient authentication
+* Wheelchair request management
+* Real-time tracking
+* Caregiver management
+* Admin dashboard
+* Robot integration
+* Reports and analytics
+
+## Future Enhancements
+
+* Push notifications
+* Real-time robot navigation visualization
+* Predictive wheelchair allocation
+* Hospital-scale fleet management
+* IoT sensor integration
+
+## License
+
+This project is developed as a Smart Robotic Wheelchair Management System for healthcare environments and educational research purposes.
