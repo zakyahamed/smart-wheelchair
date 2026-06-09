@@ -1,16 +1,25 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
+import {
+  FIREBASE_API_KEY,
+  FIREBASE_AUTH_DOMAIN,
+  FIREBASE_PROJECT_ID,
+  FIREBASE_STORAGE_BUCKET,
+  FIREBASE_MESSAGING_SENDER_ID,
+  FIREBASE_APP_ID,
+  FIREBASE_MEASUREMENT_ID,
+} from "../../.env";
 
 // Your Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyBDLXzbP4JLUySumSFLXUcbH1ymLkYa12M",
-  authDomain: "smart-wheelchair-a4ced.firebaseapp.com",
-  projectId: "smart-wheelchair-a4ced",
-  storageBucket: "smart-wheelchair-a4ced.firebasestorage.app",
-  messagingSenderId: "619539536168",
-  appId: "1:619539536168:web:1e8527b8dc8ab91a24181d",
-  measurementId: "G-X4MMC8BSJ7",
+  apiKey: FIREBASE_API_KEY,
+  authDomain: FIREBASE_AUTH_DOMAIN,
+  projectId: FIREBASE_PROJECT_ID,
+  storageBucket: FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
+  appId: FIREBASE_APP_ID,
+  measurementId: FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase (prevent duplicate init in Expo hot reload)
