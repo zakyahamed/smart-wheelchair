@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { auth, firebase } from "../../firebase/config";
+import RequestWheelchairButton from "../../components/RequestWheelchairButton";
 
 const formatDate = (value) => {
   if (!value?.toDate) return "Pending";
@@ -133,12 +134,8 @@ export default function HistoryScreen({ navigation }) {
 
       {/* ACTIONS */}
       <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={() => navigation.navigate("Request")}
-        >
-          <Text style={styles.primaryButtonText}>Request Wheelchair</Text>
-        </TouchableOpacity>
+        {/* Inline request button — opens a modal for one-tap requests */}
+        <RequestWheelchairButton style={styles.primaryButton} navigation={navigation} />
 
         <TouchableOpacity
           style={styles.secondaryButton}

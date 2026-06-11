@@ -12,7 +12,6 @@ import SignUpScreen from "../screens/auth/SignUpScreen";
 
 // Patient Screens
 import HistoryScreen from "../screens/patient/HistoryScreen";
-import RequestScreen from "../screens/patient/RequestWheelchairScreen";
 import TrackWheelchairScreen from "../screens/patient/TrackWheelchairScreen";
 
 // Caregiver Screens
@@ -87,7 +86,6 @@ export default function AppNavigator() {
         {user && role !== "caregiver" && (
           <>
             <Stack.Screen name="Home" component={HistoryScreen} />
-            <Stack.Screen name="Request" component={RequestScreen} />
             <Stack.Screen name="Track" component={TrackWheelchairScreen} />
           </>
         )}
