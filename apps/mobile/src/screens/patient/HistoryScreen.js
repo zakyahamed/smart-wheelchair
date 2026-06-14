@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Linking,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -37,6 +39,8 @@ export default function HistoryScreen({ navigation }) {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [latestRequest, setLatestRequest] = useState(null);
+  const [caregiverPhone, setCaregiverPhone] = useState(null);
+  const [caregiverName, setCaregiverName] = useState(null);
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;
@@ -82,6 +86,66 @@ export default function HistoryScreen({ navigation }) {
 
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+
+    const fetchCaregiverContact = async () => {
+      try {
+        const patientSnapshot = await firebase
+          .firestore()
+          .collection("patients")
+          .where("uid", "==", userId)
+          .limit(1)
+          .get();
+
+        if (patientSnapshot.empty) return;
+
+        const patientData = patientSnapshot.docs[0].data();
+        const caregiverId = patientData?.caregiverId;
+        if (!caregiverId) return;
+
+        const caregiverDoc = await firebase
+          .firestore()
+          .collection("caregivers")
+          .doc(caregiverId)
+          .get();
+
+        if (!caregiverDoc.exists) return;
+
+        const caregiverData = caregiverDoc.data();
+        setCaregiverPhone(caregiverData?.phone || null);
+        setCaregiverName(caregiverData?.email || caregiverData?.uid || null);
+      } catch (err) {
+        console.log("Caregiver lookup error:", err);
+      }
+    };
+
+    fetchCaregiverContact();
+  }, []);
+
+  const handleCallCaregiver = async () => {
+    if (!caregiverPhone) {
+      const message = caregiverName
+        ? `Caregiver ${caregiverName} has no phone number configured.`
+        : "No caregiver assigned or phone number available.";
+      Alert.alert("Call unavailable", message);
+      return;
+    }
+
+    const url = `tel:${caregiverPhone}`;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        Alert.alert("Unable to call", "Phone calls are not supported on this device.");
+        return;
+      }
+      await Linking.openURL(url);
+    } catch (err) {
+      Alert.alert("Call failed", err.message || "Unable to place the call.");
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -150,6 +214,13 @@ export default function HistoryScreen({ navigation }) {
           }}
         >
           <Text style={styles.secondaryButtonText}>Track Active Request</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={handleCallCaregiver}
+        >
+          <Text style={styles.secondaryButtonText}>Call Caregiver</Text>
         </TouchableOpacity>
       </View>
 

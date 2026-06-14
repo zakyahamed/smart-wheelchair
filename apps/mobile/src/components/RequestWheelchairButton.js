@@ -10,8 +10,6 @@ import {
   Alert,
 } from "react-native";
 
-import * as Location from "expo-location";
-
 import { auth } from "../firebase/config";
 import { createRequestWithAutoAssignment } from "../services/autoAssign";
 
@@ -19,45 +17,12 @@ export default function RequestWheelchairButton({ navigation, style }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
-  const [locationText, setLocationText] = useState("Fetching location...");
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [location, setLocation] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState("Room 1");
 
-  const openModal = async () => {
+  const locationOptions = ["Toilet", "Room 1", "Room 2", "Room 3"];
+
+  const openModal = () => {
     setOpen(true);
-    await fetchLocation();
-  };
-
-  const fetchLocation = async () => {
-    try {
-      setGettingLocation(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setLocationText("Location permission denied");
-        return false;
-      }
-
-      const current = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-
-      setLocation({
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
-      });
-
-      setLocationText(
-        `${current.coords.latitude.toFixed(6)}, ${current.coords.longitude.toFixed(6)}`,
-      );
-
-      return true;
-    } catch (e) {
-      console.log(e);
-      setLocationText("Unable to determine location");
-      return false;
-    } finally {
-      setGettingLocation(false);
-    }
   };
 
   const handleRequest = async () => {
@@ -67,12 +32,9 @@ export default function RequestWheelchairButton({ navigation, style }) {
       return;
     }
 
-    if (!location) {
-      const ok = await fetchLocation();
-      if (!ok) {
-        Alert.alert("Location required", "Unable to get location.");
-        return;
-      }
+    if (!selectedLocation) {
+      Alert.alert("Location required", "Please select a destination.");
+      return;
     }
 
     try {
@@ -80,7 +42,7 @@ export default function RequestWheelchairButton({ navigation, style }) {
       const result = await createRequestWithAutoAssignment({
         patientId: user.uid,
         patientEmail: user.email,
-        location,
+        location: selectedLocation,
         notes: notes.trim(),
       });
 
@@ -120,12 +82,27 @@ export default function RequestWheelchairButton({ navigation, style }) {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Request Wheelchair</Text>
 
-            <View style={styles.locationBox}>
-              {gettingLocation ? (
-                <ActivityIndicator />
-              ) : (
-                <Text>{locationText}</Text>
-              )}
+            <Text style={styles.optionLabel}>Select destination</Text>
+            <View style={styles.locationOptions}>
+              {locationOptions.map((option) => (
+                <TouchableOpacity
+                  key={option}
+                  style={[
+                    styles.locationOption,
+                    option === selectedLocation && styles.locationOptionActive,
+                  ]}
+                  onPress={() => setSelectedLocation(option)}
+                >
+                  <Text
+                    style={[
+                      styles.locationOptionText,
+                      option === selectedLocation && styles.locationOptionTextActive,
+                    ]}
+                  >
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
             <TextInput
@@ -191,12 +168,35 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 12,
   },
-  locationBox: {
+  optionLabel: {
+    color: "#3d4b63",
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  locationOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  locationOption: {
     borderWidth: 1,
     borderColor: "#cfd7e6",
     borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#f9fbff",
+  },
+  locationOptionActive: {
+    borderColor: "#1463ff",
+    backgroundColor: "#e7f0ff",
+  },
+  locationOptionText: {
+    color: "#3d4b63",
+    fontWeight: "600",
+  },
+  locationOptionTextActive: {
+    color: "#1463ff",
   },
   input: {
     borderWidth: 1,

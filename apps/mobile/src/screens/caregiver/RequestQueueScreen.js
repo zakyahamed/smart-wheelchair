@@ -138,6 +138,8 @@ export default function RequestQueueScreen({ navigation }) {
             status: "Available",
             assignedPatient: null,
             activeRequestId: null,
+            location: assignedChair.dockingPosition || assignedChair.location,
+            isOpen: false,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           },
         );

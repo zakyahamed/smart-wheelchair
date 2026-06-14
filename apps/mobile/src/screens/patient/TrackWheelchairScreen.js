@@ -1,14 +1,13 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  ImageBackground,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
-
-import MapView, { Marker } from "react-native-maps";
 import { auth, firebase } from "../../firebase/config";
 
 const statusSteps = ["pending", "assigned", "in_transit", "completed"];
@@ -26,12 +25,12 @@ const statusLabels = {
 const getCoords = (loc) => {
   if (!loc) return null;
 
-  const latitude = Number(loc.latitude);
-  const longitude = Number(loc.longitude);
+  const x = Number(loc.x ?? loc.longitude);
+  const y = Number(loc.y ?? loc.latitude);
 
-  if (isNaN(latitude) || isNaN(longitude)) return null;
+  if (isNaN(x) || isNaN(y)) return null;
 
-  return { latitude, longitude };
+  return { x, y };
 };
 
 const formatLocation = (loc) => {
@@ -41,7 +40,7 @@ const formatLocation = (loc) => {
   const coords = getCoords(loc);
   if (!coords) return "Invalid location";
 
-  return `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
+  return `x: ${coords.x.toFixed(2)}, y: ${coords.y.toFixed(2)}`;
 };
 
 /* ---------------- SCREEN ---------------- */
@@ -50,52 +49,64 @@ export default function TrackWheelchairScreen({ navigation, route }) {
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [doorUpdating, setDoorUpdating] = useState(false);
   const [wheelchair, setWheelchair] = useState(null);
 
-  const mapRef = useRef(null);
+  const handleToggleDoor = async () => {
+    if (!wheelchair?.id) return;
 
-  const [region, setRegion] = useState({
-    latitude: 6.9271,
-    longitude: 79.8612,
-    latitudeDelta: 0.01,
-    longitudeDelta: 0.01,
-  });
+    try {
+      setDoorUpdating(true);
+      await firebase.firestore().collection("wheelchairs").doc(wheelchair.id).update({
+        isOpen: !wheelchair.isOpen,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      Alert.alert("Error", err.message || "Unable to update chair state.");
+    } finally {
+      setDoorUpdating(false);
+    }
+  };
 
   /* ---------------- WHEELCHAIR LISTENER ---------------- */
 
   useEffect(() => {
     if (!request?.wheelchairId) return;
 
-    const unsub = firebase
-      .firestore()
-      .collection("wheelchairs")
-      .where("chairId", "==", request.wheelchairId)
-      .limit(1)
-      .onSnapshot((snapshot) => {
-        if (snapshot.empty) {
-          setWheelchair(null);
-          return;
+    const db = firebase.firestore();
+    let unsubscribe = () => {};
+
+    const wheelchairDocRef = db.collection("wheelchairs").doc(request.wheelchairId);
+
+    wheelchairDocRef
+      .get()
+      .then((doc) => {
+        if (doc.exists) {
+          unsubscribe = wheelchairDocRef.onSnapshot((snapshot) => {
+            setWheelchair({ id: snapshot.id, ...snapshot.data() });
+          });
+        } else {
+          unsubscribe = db
+            .collection("wheelchairs")
+            .where("chairId", "==", request.wheelchairId)
+            .limit(1)
+            .onSnapshot((snapshot) => {
+              if (snapshot.empty) {
+                setWheelchair(null);
+                return;
+              }
+
+              const doc = snapshot.docs[0];
+              setWheelchair({ id: doc.id, ...doc.data() });
+            });
         }
-
-        const doc = snapshot.docs[0];
-        const data = { id: doc.id, ...doc.data() };
-
-        setWheelchair(data);
-
-        const coords = getCoords(data?.location);
-
-        if (coords) {
-          const newRegion = {
-            ...coords,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          };
-
-          setRegion(newRegion);
-        }
+      })
+      .catch((error) => {
+        console.error("Wheelchair listener error:", error);
+        setWheelchair(null);
       });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [request?.wheelchairId]);
 
   /* ---------------- REQUEST LISTENER ---------------- */
@@ -189,7 +200,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
     );
   }
 
-  const coords = getCoords(wheelchair?.location) || region;
+  const coords = getCoords(wheelchair?.location);
 
   /* ---------------- UI ---------------- */
 
@@ -211,13 +222,27 @@ export default function TrackWheelchairScreen({ navigation, route }) {
         </View>
       ) : (
         <View style={styles.card}>
-          {/* MAP */}
+          {/* FLOOR PLAN */}
           <View style={styles.mapContainer}>
-            <MapView ref={mapRef} style={styles.map} region={region}>
-              <Marker coordinate={coords} title="Wheelchair">
-                <View style={styles.markerPin} />
-              </Marker>
-            </MapView>
+            <ImageBackground
+              source={require("../../../assets/floor-plan.png")}
+              style={styles.map}
+              imageStyle={styles.floorPlanImage}
+            >
+              {coords ? (
+                <View
+                  style={[
+                    styles.markerPin,
+                    {
+                      left: `${Math.min(Math.max(coords.x * 100, 5), 95)}%`,
+                      top: `${Math.min(Math.max(coords.y * 100, 5), 95)}%`,
+                    },
+                  ]}
+                />
+              ) : (
+                <Text style={styles.noLocationText}>Wheelchair not on map yet</Text>
+              )}
+            </ImageBackground>
           </View>
 
           {/* STATUS */}
@@ -247,6 +272,31 @@ export default function TrackWheelchairScreen({ navigation, route }) {
             <Text style={styles.detailValue}>
               {request?.wheelchairId || "Waiting for assignment"}
             </Text>
+
+            {['assigned', 'in_transit'].includes(request?.status) && wheelchair ? (
+              <View style={styles.doorBlock}>
+                <Text style={styles.detailLabel}>Chair status</Text>
+                <Text style={styles.detailValue}>
+                  {wheelchair.isOpen ? 'Open' : 'Closed'}
+                </Text>
+                <TouchableOpacity
+                  disabled={doorUpdating}
+                  style={[
+                    styles.doorButton,
+                    doorUpdating && styles.doorButtonDisabled,
+                  ]}
+                  onPress={handleToggleDoor}
+                >
+                  {doorUpdating ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.doorButtonText}>
+                      {wheelchair.isOpen ? 'Close Chair' : 'Open Chair'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </View>
 
           {/* TIMELINE */}
@@ -328,15 +378,27 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 15,
   },
-  map: { flex: 1 },
-
+  map: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  floorPlanImage: {
+    resizeMode: "cover",
+  },
   markerPin: {
+    position: "absolute",
     width: 18,
     height: 18,
     borderRadius: 9,
     backgroundColor: "#1463ff",
     borderWidth: 3,
     borderColor: "#fff",
+    transform: [{ translateX: -9 }, { translateY: -9 }],
+  },
+  noLocationText: {
+    color: "#fff",
+    fontWeight: "700",
+    textAlign: "center",
   },
 
   statusHeader: {
@@ -397,4 +459,20 @@ const styles = StyleSheet.create({
   },
   cancelButtonDisabled: { opacity: 0.6 },
   cancelText: { color: "#991b1b", fontWeight: "700" },
+
+  doorBlock: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderColor: "#edf1f7",
+    paddingTop: 12,
+  },
+  doorButton: {
+    marginTop: 10,
+    backgroundColor: "#1463ff",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  doorButtonDisabled: { opacity: 0.6 },
+  doorButtonText: { color: "#fff", fontWeight: "700" },
 });

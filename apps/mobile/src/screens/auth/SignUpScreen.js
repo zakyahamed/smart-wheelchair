@@ -13,6 +13,7 @@ export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("patient");
+  const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async () => {
@@ -35,6 +36,7 @@ export default function SignUpScreen({ navigation }) {
         uid,
         email: email.trim(),
         role,
+        phone: role === "caregiver" ? phone.trim() : null,
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
 
@@ -95,6 +97,17 @@ export default function SignUpScreen({ navigation }) {
         style={{ borderWidth: 1, marginBottom: 10, padding: 10 }}
         placeholderTextColor="#999"
       />
+
+      {role === "caregiver" && (
+        <TextInput
+          placeholder="Phone number"
+          value={phone}
+          onChangeText={setPhone}
+          keyboardType="phone-pad"
+          style={{ borderWidth: 1, marginBottom: 10, padding: 10 }}
+          placeholderTextColor="#999"
+        />
+      )}
 
       {/* ROLE SELECTOR */}
       <Text style={{ marginTop: 10, marginBottom: 5 }}>Select Role:</Text>

@@ -14,6 +14,7 @@ import * as Location from "expo-location";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { assignOldestPendingRequestToWheelchair } from "../../services/autoAssign";
+import { getRoomCoordinates } from "../../services/roomService";
 
 export default function AddWheelchairScreen({ navigation }) {
   const [chairId, setChairId] = useState("");
@@ -21,10 +22,13 @@ export default function AddWheelchairScreen({ navigation }) {
   const [battery, setBattery] = useState("");
   const [status, setStatus] = useState("Available");
   const [tags, setTags] = useState("");
+  const [dockingLocation, setDockingLocation] = useState("Toilet");
 
   const [location, setLocation] = useState(null);
   const [locationText, setLocationText] = useState("No location selected");
   const [gettingLocation, setGettingLocation] = useState(false);
+
+  const dockingOptions = ["Toilet", "Room 1", "Room 2", "Room 3"];
 
   const [loading, setLoading] = useState(false);
 
@@ -72,11 +76,6 @@ export default function AddWheelchairScreen({ navigation }) {
       return;
     }
 
-    if (!location) {
-      Alert.alert("Error", "Please fetch device location first");
-      return;
-    }
-
     try {
       setLoading(true);
 
@@ -85,6 +84,8 @@ export default function AddWheelchairScreen({ navigation }) {
         .map((t) => t.trim())
         .filter(Boolean);
 
+      const dockingCoords = await getRoomCoordinates(dockingLocation);
+
       const wheelchairRef = await addDoc(collection(db, "wheelchairs"), {
         chairId,
         name,
@@ -92,8 +93,11 @@ export default function AddWheelchairScreen({ navigation }) {
         status,
         tags: tagArray,
 
-        location,
+        dockingLocation,
+        location: dockingCoords || null,
+        dockingPosition: dockingCoords || null,
         locationUpdatedAt: serverTimestamp(),
+        isOpen: false,
 
         assignedPatient: null,
         activeRequestId: null,
@@ -119,6 +123,7 @@ export default function AddWheelchairScreen({ navigation }) {
       setBattery("");
       setTags("");
       setStatus("Available");
+      setDockingLocation("Toilet");
       setLocation(null);
       setLocationText("No location selected");
 
@@ -190,6 +195,29 @@ export default function AddWheelchairScreen({ navigation }) {
       </TouchableOpacity>
 
       <Text style={styles.locationText}>{locationText}</Text>
+
+      <Text style={styles.label}>Docking Position</Text>
+      <View style={styles.dockingOptions}>
+        {dockingOptions.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[
+              styles.dockingOption,
+              dockingLocation === option && styles.dockingOptionActive,
+            ]}
+            onPress={() => setDockingLocation(option)}
+          >
+            <Text
+              style={[
+                styles.dockingOptionText,
+                dockingLocation === option && styles.dockingOptionTextActive,
+              ]}
+            >
+              {option}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       <Text style={styles.label}>Status</Text>
 
@@ -282,6 +310,32 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: "#555",
     fontSize: 13,
+  },
+
+  dockingOptions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 15,
+  },
+  dockingOption: {
+    borderWidth: 1,
+    borderColor: "#cfd7e6",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#f9fbff",
+  },
+  dockingOptionActive: {
+    borderColor: "#1463ff",
+    backgroundColor: "#e7f0ff",
+  },
+  dockingOptionText: {
+    color: "#3d4b63",
+    fontWeight: "600",
+  },
+  dockingOptionTextActive: {
+    color: "#1463ff",
   },
 
   statusOptions: {
