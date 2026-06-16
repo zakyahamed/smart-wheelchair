@@ -71,7 +71,15 @@ export default function HistoryScreen({ navigation }) {
 
           // get latest active request
           const active = items.find((r) =>
-            ["pending", "assigned", "in_transit"].includes(r.status),
+            [
+              "pending",
+              "assigned",
+              "arrived_for_pickup",
+              "destination_set",
+              "in_transit",
+              "arrived_destination",
+              "returning",
+            ].includes(r.status),
           );
 
           setLatestRequest(active || null);
