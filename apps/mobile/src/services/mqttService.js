@@ -1,4 +1,4 @@
-import * as mqtt from 'mqtt';
+import mqtt from 'mqtt/dist/mqtt';
 
 class MQTTService {
   constructor() {
@@ -11,50 +11,28 @@ class MQTTService {
   async connect(brokerUrl, options = {}) {
     if (this.client) return this.isConnected;
 
-    console.log('[MQTTService] Attempting to connect to:', brokerUrl);
-
     const opts = {
       clientId: this.clientId,
       clean: true,
       reconnectPeriod: 1000,
-      connectTimeout: 10000,
-      keepalive: 60,
+      connectTimeout: 4000,
       ...options,
     };
 
-    console.log('[MQTTService] Connect options:', opts);
-
-    const mqttLib = mqtt && mqtt.connect ? mqtt : mqtt.default ? mqtt.default : mqtt;
-    if (!mqttLib || typeof mqttLib.connect !== 'function') {
-      throw new Error('MQTT library does not expose connect()');
-    }
-
-    try {
-      this.client = mqttLib.connect(brokerUrl, opts);
-      console.log('[MQTTService] Client created, setting up handlers...');
-    } catch (err) {
-      console.error('[MQTTService] Failed to create client:', err);
-      throw err;
-    }
+    this.client = mqtt.connect(brokerUrl, opts);
 
     this.client.on('connect', () => {
       this.isConnected = true;
-      console.log('[MQTT] ✓ Successfully connected');
+      console.log('[MQTT] connected');
     });
 
     this.client.on('error', (err) => {
-      console.error('[MQTT] ✗ Connection error:', err.message, err.code || '');
+      console.error('[MQTT] error', err);
       this.isConnected = false;
     });
 
-    this.client.on('close', () => {
-      console.log('[MQTT] ✗ Connection closed');
-      this.isConnected = false;
-    });
-
-    this.client.on('offline', () => {
-      console.log('[MQTT] ✗ Connection offline');
-      this.isConnected = false;
+    this.client.on('reconnect', () => {
+      console.log('[MQTT] reconnecting');
     });
 
     this.client.on('message', (topic, message) => {

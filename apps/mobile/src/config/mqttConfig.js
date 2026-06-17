@@ -1,11 +1,13 @@
-// MQTT Configuration (hardcoded for Expo compatibility - process.env doesn't reliably work in RN)
+// MQTT Configuration (defaults can be overridden via .env)
 const MQTT_CONFIG = {
-  BROKER_HOST: 'broker.hivemq.com',
-  BROKER_PORT: 8000,
-  BROKER_PROTOCOL: 'ws',
+  BROKER_HOST: process.env.REACT_APP_MQTT_HOST || 'broker.hivemq.com',
+  BROKER_PORT: parseInt(process.env.REACT_APP_MQTT_PORT || '8883', 10),
+  BROKER_PROTOCOL: process.env.REACT_APP_MQTT_PROTOCOL || 'mqtt',
+  USERNAME: process.env.REACT_APP_MQTT_USERNAME || 'wheelchair',
+  PASSWORD: process.env.REACT_APP_MQTT_PASSWORD || '',
 
   getBrokerUrl() {
-    return `${this.BROKER_PROTOCOL}://${this.BROKER_HOST}:${this.BROKER_PORT}/mqtt`;
+    return `${this.BROKER_PROTOCOL}://${this.BROKER_HOST}:${this.BROKER_PORT}`;
   },
 
   TOPICS: {
