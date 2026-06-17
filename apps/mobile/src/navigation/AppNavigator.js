@@ -20,6 +20,7 @@ import AddWheelchairScreen from "../screens/caregiver/AddWheelchairScreen";
 import CaregiverDashboardScreen from "../screens/caregiver/CaregiverDashboardScreen";
 import ManagePatientsScreen from "../screens/caregiver/ManagePatientsScreen";
 import RequestQueueScreen from "../screens/caregiver/RequestQueueScreen";
+import SelectDestinationScreen from "../screens/patient/SelectDestinationScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -87,6 +88,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="Home" component={HistoryScreen} />
             <Stack.Screen name="Track" component={TrackWheelchairScreen} />
+            <Stack.Screen name="SelectDestination" component={SelectDestinationScreen}/>
           </>
         )}
 

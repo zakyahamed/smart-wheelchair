@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -205,7 +206,10 @@ export default function TrackWheelchairScreen({ navigation, route }) {
   /* ---------------- UI ---------------- */
 
   return (
-    <View style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={ styles.scrollContent}
+      showVerticalScrollIndicator= {false}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.backText}>Back</Text>
       </TouchableOpacity>
@@ -299,6 +303,27 @@ export default function TrackWheelchairScreen({ navigation, route }) {
             ) : null}
           </View>
 
+          {/* DESTINATION */}
+          {request?.status === "assigned" &&
+          wheelchair &&
+          !wheelchair.isOpen && (
+          <TouchableOpacity
+            style={styles.destinationButton}
+            onPress={() =>
+              navigation.navigate(
+                "SelectDestination",
+                {
+                  requestId: request.id,
+                }
+              )
+            }
+          >
+              <Text style={styles.destinationButtonText}>
+                Select Destination
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* TIMELINE */}
           {request?.status !== "cancelled" && (
             <View style={styles.timeline}>
@@ -342,7 +367,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           )}
         </View>
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -475,4 +500,18 @@ const styles = StyleSheet.create({
   },
   doorButtonDisabled: { opacity: 0.6 },
   doorButtonText: { color: "#fff", fontWeight: "700" },
+
+  destinationButton: {
+  marginTop: 15,
+  backgroundColor: "#16a34a",
+  paddingVertical: 12,
+  borderRadius: 8,
+  alignItems: "center",
+  },
+
+  destinationButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
+  },
 });
