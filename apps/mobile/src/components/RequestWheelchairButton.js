@@ -82,7 +82,7 @@ export default function RequestWheelchairButton({ navigation, style }) {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Request Wheelchair</Text>
 
-            <Text style={styles.optionLabel}>Select pickup location</Text>
+            <Text style={styles.optionLabel}>Select destination</Text>
             <View style={styles.locationOptions}>
               {locationOptions.map((option) => (
                 <TouchableOpacity

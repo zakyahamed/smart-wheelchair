@@ -12,15 +12,7 @@ import {
 import { firebase } from "../../firebase/config";
 import { assignOldestPendingRequestToWheelchair } from "../../services/autoAssign";
 
-const activeStatuses = [
-  "pending",
-  "assigned",
-  "arrived_for_pickup",
-  "destination_set",
-  "in_transit",
-  "arrived_destination",
-  "returning",
-];
+const activeStatuses = ["pending", "assigned", "in_transit"];
 
 const statusLabels = {
   pending: "Pending",

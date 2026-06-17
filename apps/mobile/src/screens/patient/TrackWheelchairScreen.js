@@ -3,42 +3,19 @@ import {
   ActivityIndicator,
   Alert,
   ImageBackground,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { auth, firebase } from "../../firebase/config";
-import {
-  setRequestDestination,
-  startTripToDestination,
-  returnWheelchairToDock,
-  publishOpenSeat,
-  publishCloseSeat,
-  publishReturnToDock,
-  publishStop,
-} from "../../services/autoAssign";
 
-const statusSteps = [
-  "pending",
-  "assigned",
-  "arrived_for_pickup",
-  "destination_set",
-  "in_transit",
-  "arrived_destination",
-  "returning",
-  "completed",
-];
+const statusSteps = ["pending", "assigned", "in_transit", "completed"];
 
 const statusLabels = {
   pending: "Waiting for assignment",
   assigned: "Wheelchair assigned",
-  arrived_for_pickup: "Wheelchair arrived",
-  destination_set: "Destination saved",
   in_transit: "Wheelchair on the way",
-  arrived_destination: "Reached destination",
-  returning: "Returning to dock",
   completed: "Trip completed",
   cancelled: "Request cancelled",
 };
@@ -73,75 +50,21 @@ export default function TrackWheelchairScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [doorUpdating, setDoorUpdating] = useState(false);
-  const [destinationSaving, setDestinationSaving] = useState(false);
-  const [tripStarting, setTripStarting] = useState(false);
   const [wheelchair, setWheelchair] = useState(null);
-  const [selectedDestination, setSelectedDestination] = useState("Room 1");
-
-  useEffect(() => {
-    if (request?.destinationLocation) {
-      setSelectedDestination(request.destinationLocation);
-    }
-  }, [request?.destinationLocation]);
 
   const handleToggleDoor = async () => {
     if (!wheelchair?.id) return;
 
-    const closingSeat = wheelchair.isOpen;
     try {
       setDoorUpdating(true);
       await firebase.firestore().collection("wheelchairs").doc(wheelchair.id).update({
         isOpen: !wheelchair.isOpen,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
-
-      // Publish MQTT command
-      if (closingSeat) {
-        await publishCloseSeat(wheelchair.id, request?.id);
-        
-        // If at destination and closing, return to dock
-        if (request?.status === "arrived_destination" && request?.id) {
-          await returnWheelchairToDock(request.id);
-        }
-      } else {
-        await publishOpenSeat(wheelchair.id, request?.id);
-      }
     } catch (err) {
       Alert.alert("Error", err.message || "Unable to update chair state.");
     } finally {
       setDoorUpdating(false);
-    }
-  };
-
-  const handleSaveDestination = async () => {
-    if (!request?.id || !selectedDestination) return;
-
-    try {
-      setDestinationSaving(true);
-      const success = await setRequestDestination(request.id, selectedDestination);
-      if (!success) {
-        throw new Error("Unable to save destination.");
-      }
-    } catch (err) {
-      Alert.alert("Error", err.message || "Unable to save destination.");
-    } finally {
-      setDestinationSaving(false);
-    }
-  };
-
-  const handleStartTrip = async () => {
-    if (!request?.id) return;
-
-    try {
-      setTripStarting(true);
-      const started = await startTripToDestination(request.id);
-      if (!started) {
-        throw new Error("Unable to start the trip.");
-      }
-    } catch (err) {
-      Alert.alert("Error", err.message || "Unable to start trip.");
-    } finally {
-      setTripStarting(false);
     }
   };
 
@@ -216,15 +139,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           const active = snapshot.docs
             .map((d) => ({ id: d.id, ...d.data() }))
             .filter((r) =>
-              [
-                "pending",
-                "assigned",
-                "arrived_for_pickup",
-                "destination_set",
-                "in_transit",
-                "arrived_destination",
-                "returning",
-              ].includes(r.status),
+              ["pending", "assigned", "in_transit"].includes(r.status),
             )
             .sort(
               (a, b) =>
@@ -298,9 +213,8 @@ export default function TrackWheelchairScreen({ navigation, route }) {
       <Text style={styles.title}>Track Wheelchair</Text>
       <Text style={styles.subtitle}>Live location tracking</Text>
 
-      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
-        {!request ? (
-          <View style={styles.emptyCard}>
+      {!request ? (
+        <View style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>No active request</Text>
           <Text style={styles.emptyText}>
             Create a request to start tracking.
@@ -359,7 +273,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
               {request?.wheelchairId || "Waiting for assignment"}
             </Text>
 
-            {['assigned', 'arrived_for_pickup', 'arrived_destination'].includes(request?.status) && wheelchair ? (
+            {['assigned', 'in_transit'].includes(request?.status) && wheelchair ? (
               <View style={styles.doorBlock}>
                 <Text style={styles.detailLabel}>Chair status</Text>
                 <Text style={styles.detailValue}>
@@ -379,62 +293,6 @@ export default function TrackWheelchairScreen({ navigation, route }) {
                     <Text style={styles.doorButtonText}>
                       {wheelchair.isOpen ? 'Close Chair' : 'Open Chair'}
                     </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            {request?.status === 'arrived_for_pickup' ? (
-              <View style={styles.destinationBlock}>
-                <Text style={styles.detailLabel}>Select destination</Text>
-                <View style={styles.locationOptions}>
-                  {['Toilet', 'Room 1', 'Room 2', 'Room 3'].map((option) => (
-                    <TouchableOpacity
-                      key={option}
-                      style={[
-                        styles.locationOption,
-                        option === selectedDestination && styles.locationOptionActive,
-                      ]}
-                      onPress={() => setSelectedDestination(option)}
-                    >
-                      <Text
-                        style={[
-                          styles.locationOptionText,
-                          option === selectedDestination && styles.locationOptionTextActive,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TouchableOpacity
-                  style={styles.primaryAction}
-                  disabled={destinationSaving}
-                  onPress={handleSaveDestination}
-                >
-                  {destinationSaving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.primaryActionText}>Save Destination</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            ) : null}
-
-            {request?.status === 'destination_set' ? (
-              <View style={styles.destinationBlock}>
-                <Text style={styles.detailLabel}>Destination</Text>
-                <Text style={styles.detailValue}>{request.destinationLocation}</Text>
-                <TouchableOpacity
-                  style={styles.primaryAction}
-                  disabled={tripStarting}
-                  onPress={handleStartTrip}
-                >
-                  {tripStarting ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.primaryActionText}>Start Trip</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -483,8 +341,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
             </TouchableOpacity>
           )}
         </View>
-        )}
-      </ScrollView>
+      )}
     </View>
   );
 }
@@ -498,12 +355,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f6f8fb",
     padding: 20,
     paddingTop: 56,
-  },
-  scrollContent: {
-    flex: 1,
-  },
-  scrollContentContainer: {
-    paddingBottom: 20,
   },
   backText: {
     color: "#1463ff",
@@ -624,47 +475,4 @@ const styles = StyleSheet.create({
   },
   doorButtonDisabled: { opacity: 0.6 },
   doorButtonText: { color: "#fff", fontWeight: "700" },
-
-  destinationBlock: {
-    marginTop: 18,
-    borderTopWidth: 1,
-    borderColor: "#edf1f7",
-    paddingTop: 14,
-  },
-  locationOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginTop: 10,
-  },
-  locationOption: {
-    borderWidth: 1,
-    borderColor: "#d4dae5",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  locationOptionActive: {
-    backgroundColor: "#1463ff",
-    borderColor: "#1463ff",
-  },
-  locationOptionText: {
-    color: "#3d4b63",
-    fontWeight: "600",
-  },
-  locationOptionTextActive: {
-    color: "#fff",
-  },
-  primaryAction: {
-    marginTop: 12,
-    backgroundColor: "#1463ff",
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  primaryActionText: {
-    color: "#fff",
-    fontWeight: "700",
-  },
 });

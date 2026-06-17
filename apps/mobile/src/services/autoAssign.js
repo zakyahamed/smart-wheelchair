@@ -1,7 +1,5 @@
 import { firebase } from "../firebase/config";
 import { getRoomCoordinates } from "./roomService";
-import { getMQTTInstance } from "./mqttService";
-import MQTT_CONFIG from "../config/mqttConfig";
 
 const activeWheelchairStatuses = ["Available", "available"];
 
@@ -39,91 +37,38 @@ export async function moveWheelchairToLocation(
   options = {},
 ) {
   const db = firebase.firestore();
-  const destinationCoords =
-    typeof destination === "string"
-      ? await getLocationCoordsAsync(destination)
-      : getLocationCoords(destination);
-
+  const destinationCoords = getLocationCoords(destination);
   if (!wheelchairId || !destinationCoords) return null;
 
   const wheelchairDoc = await db.collection("wheelchairs").doc(wheelchairId).get();
   if (!wheelchairDoc.exists) return null;
 
   const wheelchair = { id: wheelchairDoc.id, ...wheelchairDoc.data() };
-
-  // If MQTT is available, send a move command to the robot and skip local simulation
-  try {
-    const mqtt = getMQTTInstance();
-    if (mqtt && mqtt.isConnectedToMQTT && mqtt.isConnectedToMQTT()) {
-      const topic = MQTT_CONFIG.TOPICS.WHEELCHAIR_COMMAND(wheelchair.chairId || wheelchair.id || wheelchairId);
-      await mqtt.publish(topic, {
-        type: MQTT_CONFIG.MESSAGE_TYPES.MOVE_TO_LOCATION,
-        wheelchairId: wheelchair.chairId || wheelchair.id || wheelchairId,
-        location: destinationCoords,
-        requestId: options.requestId || null,
-      }, { qos: 1 });
-
-      if (!options.forceLocalSim) {
-        return true;
-      }
-    }
-  } catch (err) {
-    console.warn('[autoAssign] MQTT publish failed, falling back to local simulation', err);
-  }
-
   const startCoords = getLocationCoords(wheelchair.location);
   if (!startCoords) return null;
-
-  const requestRef = options.requestId
-    ? db.collection("requests").doc(options.requestId)
-    : wheelchair.activeRequestId
-    ? db.collection("requests").doc(wheelchair.activeRequestId)
-    : null;
-
-  const movementStatus = options.statusOnMove || "In Transit";
-  const arrivalStatus = options.arrivalStatus;
-  const arrivalWheelchairStatus = options.arrivalWheelchairStatus;
-
-  if (requestRef && options.statusOnMove) {
-    await requestRef.update({
-      status: options.statusOnMove,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-
-  const finishWheelchairUpdate = async () => {
-    const updateData = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-    if (arrivalWheelchairStatus) {
-      updateData.status = arrivalWheelchairStatus;
-    }
-    if (options.onArrivalWheelchairUpdate) {
-      Object.assign(updateData, options.onArrivalWheelchairUpdate);
-    }
-    if (Object.keys(updateData).length > 1) {
-      await db.collection("wheelchairs").doc(wheelchairId).update(updateData);
-    }
-  };
-
   if (startCoords.x === destinationCoords.x && startCoords.y === destinationCoords.y) {
-    if (requestRef && arrivalStatus) {
-      await requestRef.update({
-        status: arrivalStatus,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-    }
-    await finishWheelchairUpdate();
-    return true;
+    return null;
   }
 
   const steps = options.steps ?? 12;
   const interval = options.interval ?? 400;
+  const requestRef = wheelchair.activeRequestId
+    ? db.collection("requests").doc(wheelchair.activeRequestId)
+    : null;
+
+  if (requestRef) {
+    await requestRef.update({
+      status: "in_transit",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
 
   for (let step = 1; step <= steps; step += 1) {
     const nextLocation = interpolateLocation(startCoords, destinationCoords, step / steps);
 
     await db.collection("wheelchairs").doc(wheelchairId).update({
       location: nextLocation,
-      status: movementStatus,
+      status: "In Transit",
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -132,14 +77,6 @@ export async function moveWheelchairToLocation(
     }
   }
 
-  if (requestRef && arrivalStatus) {
-    await requestRef.update({
-      status: arrivalStatus,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  }
-
-  await finishWheelchairUpdate();
   return true;
 };
 
@@ -163,8 +100,6 @@ export async function createRequestWithAutoAssignment({
   const requestData = {
     patientId,
     patientEmail,
-    pickupLocation: location,
-    destinationLocation: null,
     location,
     notes,
     status: availableWheelchair ? "assigned" : "pending",
@@ -185,20 +120,16 @@ export async function createRequestWithAutoAssignment({
       status: "In Transit",
       assignedPatient: patientId,
       activeRequestId: requestRef.id,
+      location: targetCoords || availableWheelchair.location,
       updatedAt: now,
     });
   }
 
   await batch.commit();
 
-  if (availableWheelchair && targetCoords) {
-    void moveWheelchairToLocation(availableWheelchair.id, targetCoords, {
-      requestId: requestRef.id,
-      statusOnMove: "assigned",
-      arrivalStatus: "arrived_for_pickup",
-      arrivalWheelchairStatus: "Waiting",
-      onArrivalWheelchairUpdate: { isOpen: false },
-    });
+  if (availableWheelchair) {
+    void moveWheelchairToLocation(availableWheelchair.id, targetCoords || location);
+    void moveWheelchairToLocation(availableWheelchair.id, targetCoords);
   }
 
   return {
@@ -207,200 +138,6 @@ export async function createRequestWithAutoAssignment({
     assignedWheelchairLabel: requestData.wheelchairLabel,
     status: requestData.status,
   };
-}
-
-export async function setRequestDestination(requestId, destination) {
-  const db = firebase.firestore();
-  const requestRef = db.collection("requests").doc(requestId);
-  const requestDoc = await requestRef.get();
-  if (!requestDoc.exists) return null;
-
-  const request = { id: requestDoc.id, ...requestDoc.data() };
-  if (!request.wheelchairId) return null;
-
-  await requestRef.update({
-    destinationLocation: destination,
-    status: "destination_set",
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-
-  return true;
-}
-
-export async function startTripToDestination(requestId) {
-  const db = firebase.firestore();
-  const requestRef = db.collection("requests").doc(requestId);
-  const requestDoc = await requestRef.get();
-  if (!requestDoc.exists) return null;
-
-  const request = { id: requestDoc.id, ...requestDoc.data() };
-  if (!request.wheelchairId || !request.destinationLocation) return null;
-
-  const targetCoords = await getLocationCoordsAsync(request.destinationLocation);
-  if (!targetCoords) return null;
-
-  await requestRef.update({
-    status: "in_transit",
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await moveWheelchairToLocation(request.wheelchairId, targetCoords, {
-    requestId,
-    statusOnMove: "in_transit",
-    arrivalStatus: "arrived_destination",
-    arrivalWheelchairStatus: "Stopped",
-    onArrivalWheelchairUpdate: { isOpen: false },
-  });
-
-  return true;
-}
-
-export async function returnWheelchairToDock(requestId) {
-  const db = firebase.firestore();
-  const requestRef = db.collection("requests").doc(requestId);
-  const requestDoc = await requestRef.get();
-  if (!requestDoc.exists) return null;
-
-  const request = { id: requestDoc.id, ...requestDoc.data() };
-  if (!request.wheelchairId) return null;
-
-  const wheelchairDoc = await db.collection("wheelchairs").doc(request.wheelchairId).get();
-  if (!wheelchairDoc.exists) return null;
-
-  const wheelchair = { id: wheelchairDoc.id, ...wheelchairDoc.data() };
-  const dockCoords = getLocationCoords(wheelchair.dockingPosition || wheelchair.location);
-  if (!dockCoords) return null;
-
-  // Publish MQTT return_to_dock command
-  try {
-    await publishReturnToDock(wheelchair.id, requestId);
-  } catch (err) {
-    console.warn('[autoAssign] Failed to publish return_to_dock', err);
-  }
-
-  await requestRef.update({
-    status: "returning",
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await moveWheelchairToLocation(wheelchair.id, dockCoords, {
-    requestId,
-    statusOnMove: "returning",
-    arrivalStatus: "completed",
-    arrivalWheelchairStatus: "Available",
-    onArrivalWheelchairUpdate: {
-      assignedPatient: null,
-      activeRequestId: null,
-      isOpen: false,
-      location: wheelchair.dockingPosition || wheelchair.location,
-    },
-  });
-
-  return true;
-}
-
-/**
- * Send MQTT command to open wheelchair seat
- */
-export async function publishOpenSeat(wheelchairId, requestId = null) {
-  try {
-    const mqtt = getMQTTInstance();
-    if (!mqtt || !mqtt.isConnectedToMQTT || !mqtt.isConnectedToMQTT()) {
-      console.warn('[autoAssign] MQTT not connected, cannot publish open_seat');
-      return false;
-    }
-
-    const topic = MQTT_CONFIG.TOPICS.WHEELCHAIR_COMMAND(wheelchairId);
-    await mqtt.publish(topic, {
-      type: MQTT_CONFIG.MESSAGE_TYPES.OPEN_SEAT,
-      wheelchairId,
-      requestId: requestId || null,
-    }, { qos: 1 });
-
-    console.log('[autoAssign] published open_seat for', wheelchairId);
-    return true;
-  } catch (err) {
-    console.error('[autoAssign] publishOpenSeat failed:', err);
-    return false;
-  }
-}
-
-/**
- * Send MQTT command to close wheelchair seat
- */
-export async function publishCloseSeat(wheelchairId, requestId = null) {
-  try {
-    const mqtt = getMQTTInstance();
-    if (!mqtt || !mqtt.isConnectedToMQTT || !mqtt.isConnectedToMQTT()) {
-      console.warn('[autoAssign] MQTT not connected, cannot publish close_seat');
-      return false;
-    }
-
-    const topic = MQTT_CONFIG.TOPICS.WHEELCHAIR_COMMAND(wheelchairId);
-    await mqtt.publish(topic, {
-      type: MQTT_CONFIG.MESSAGE_TYPES.CLOSE_SEAT,
-      wheelchairId,
-      requestId: requestId || null,
-    }, { qos: 1 });
-
-    console.log('[autoAssign] published close_seat for', wheelchairId);
-    return true;
-  } catch (err) {
-    console.error('[autoAssign] publishCloseSeat failed:', err);
-    return false;
-  }
-}
-
-/**
- * Send MQTT command to return wheelchair to dock
- */
-export async function publishReturnToDock(wheelchairId, requestId = null) {
-  try {
-    const mqtt = getMQTTInstance();
-    if (!mqtt || !mqtt.isConnectedToMQTT || !mqtt.isConnectedToMQTT()) {
-      console.warn('[autoAssign] MQTT not connected, cannot publish return_to_dock');
-      return false;
-    }
-
-    const topic = MQTT_CONFIG.TOPICS.WHEELCHAIR_COMMAND(wheelchairId);
-    await mqtt.publish(topic, {
-      type: MQTT_CONFIG.MESSAGE_TYPES.RETURN_TO_DOCK,
-      wheelchairId,
-      requestId: requestId || null,
-    }, { qos: 1 });
-
-    console.log('[autoAssign] published return_to_dock for', wheelchairId);
-    return true;
-  } catch (err) {
-    console.error('[autoAssign] publishReturnToDock failed:', err);
-    return false;
-  }
-}
-
-/**
- * Send MQTT command to stop wheelchair
- */
-export async function publishStop(wheelchairId, requestId = null) {
-  try {
-    const mqtt = getMQTTInstance();
-    if (!mqtt || !mqtt.isConnectedToMQTT || !mqtt.isConnectedToMQTT()) {
-      console.warn('[autoAssign] MQTT not connected, cannot publish stop');
-      return false;
-    }
-
-    const topic = MQTT_CONFIG.TOPICS.WHEELCHAIR_COMMAND(wheelchairId);
-    await mqtt.publish(topic, {
-      type: MQTT_CONFIG.MESSAGE_TYPES.STOP,
-      wheelchairId,
-      requestId: requestId || null,
-    }, { qos: 1 });
-
-    console.log('[autoAssign] published stop for', wheelchairId);
-    return true;
-  } catch (err) {
-    console.error('[autoAssign] publishStop failed:', err);
-    return false;
-  }
 }
 
 export async function assignOldestPendingRequestToWheelchair(wheelchairId) {
