@@ -304,26 +304,23 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           </View>
 
           {/* DESTINATION */}
-          {request?.status === "assigned" &&
+          {["assigned", "in_transit"].includes(request?.status) &&
           wheelchair &&
           !wheelchair.isOpen && (
-          <TouchableOpacity
-            style={styles.destinationButton}
-            onPress={() =>
-              navigation.navigate(
-                "SelectDestination",
-                {
+            <TouchableOpacity
+              style={styles.destinationButton}
+              onPress={() =>
+                navigation.navigate("SelectDestination", {
                   requestId: request.id,
-                }
-              )
-            }
-          >
+                })
+              }
+            >
               <Text style={styles.destinationButtonText}>
                 Select Destination
               </Text>
             </TouchableOpacity>
           )}
-
+          
           {/* TIMELINE */}
           {request?.status !== "cancelled" && (
             <View style={styles.timeline}>
@@ -347,6 +344,20 @@ export default function TrackWheelchairScreen({ navigation, route }) {
               ))}
             </View>
           )}
+
+          {request?.status === "arrived" &&
+            wheelchair &&
+            !wheelchair.isOpen && (
+
+              <TouchableOpacity
+                style={styles.doorButton}
+                onPress={handleToggleDoor}
+              >
+                <Text style={styles.doorButtonText}>
+                  Open Chair
+                </Text>
+              </TouchableOpacity>
+            )}
 
           {/* CANCEL */}
           {["pending", "assigned"].includes(request?.status) && (

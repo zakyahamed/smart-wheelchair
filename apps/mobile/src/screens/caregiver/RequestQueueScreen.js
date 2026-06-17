@@ -208,14 +208,14 @@ export default function RequestQueueScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {item.status === "in_transit" && (
+            {/* {item.status === "in_transit" && (
               <TouchableOpacity
                 style={styles.primaryAction}
                 onPress={() => completeRequest(item)}
               >
                 <Text style={styles.primaryActionText}>Complete</Text>
               </TouchableOpacity>
-            )}
+            )} */}
 
             {["pending", "assigned"].includes(item.status) && (
               <TouchableOpacity
