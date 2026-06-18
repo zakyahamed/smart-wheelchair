@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Laptop Streamer - Smart Wheelchair</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f2f5; color: #333; }
+        #video { width: 100%; max-width: 640px; border-radius: 12px; background: #000; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        .status { margin: 10px; padding: 12px 20px; border-radius: 8px; display: inline-block; font-weight: bold; transition: all 0.3s; }
+        .status-off { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+        .status-on { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        h1 { color: #1e293b; }
+        p { color: #64748b; }
+    </style>
+</head>
+<body>
+    <h1>Laptop Streamer</h1>
+    <p>This page acts as the camera source for the Smart Wheelchair app.</p>
+    <div id="status-box" class="status status-off">Status: Idle (Waiting for Mobile)</div>
+    <br>
+    <video id="video" autoplay playsinline muted></video>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBDLXzbP4JLUySumSFLXUcbH1ymLkYa12M",
+            authDomain: "smart-wheelchair-a4ced.firebaseapp.com",
+            projectId: "smart-wheelchair-a4ced",
+            storageBucket: "smart-wheelchair-a4ced.firebasestorage.app",
+            messagingSenderId: "619539536168",
+            appId: "1:619539536168:web:1e8527b8dc8ab91a24181d",
+            measurementId: "G-X4MMC8BSJ7"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const callDoc = db.collection('webcam_sessions').doc('laptop_stream');
+
+        let pc = null;
+        let localStream = null;
+
+        const setStatus = (msg, active = false) => {
+            console.log(`[Status] ${msg}`);
+            const box = document.getElementById('status-box');
+            box.innerText = `Status: ${msg}`;
+            box.className = `status ${active ? 'status-on' : 'status-off'}`;
+        };
+
+        async function startStreaming() {
+            if (localStream) return;
+            setStatus("Initializing Camera...", true);
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                document.getElementById('video').srcObject = localStream;
+
+                pc = new RTCPeerConnection({
+                    iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
+                });
+
+                // Important: Add tracks BEFORE handling the offer
+                localStream.getTracks().forEach(track => {
+                    console.log("Adding track:", track.kind);
+                    pc.addTrack(track, localStream);
+                });
+
+                const answerCandidates = callDoc.collection('answerCandidates');
+                const offerCandidates = callDoc.collection('offerCandidates');
+
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log("Local ICE candidate generated");
+                        answerCandidates.add(event.candidate.toJSON());
+                    }
+                };
+
+                pc.onconnectionstatechange = () => {
+                    setStatus(`Connection: ${pc.connectionState}`, true);
+                    if (pc.connectionState === 'failed') {
+                        setStatus("Connection Failed - Restarting...", false);
+                        stopStreaming();
+                    }
+                };
+
+                // Listen for Offer
+                callDoc.onSnapshot(async (snapshot) => {
+                    const data = snapshot.data();
+                    if (!pc) return;
+
+                    if (!pc.remoteDescription && data && data.offer) {
+                        console.log("Offer received, creating answer...");
+                        try {
+                            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                            const answerDescription = await pc.createAnswer();
+                            await pc.setLocalDescription(answerDescription);
+
+                            await callDoc.update({
+                                answer: { type: answerDescription.type, sdp: answerDescription.sdp }
+                            });
+                        } catch (e) {
+                            console.error("Error during signaling:", e);
+                        }
+                    }
+                });
+
+                // Listen for Remote Candidates
+                offerCandidates.onSnapshot((snapshot) => {
+                    snapshot.docChanges().forEach((change) => {
+                        if (change.type === 'added' && pc) {
+                            console.log("Remote ICE candidate added");
+                            pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                        }
+                    });
+                });
+
+                setStatus("Broadcasting - Ready for Mobile", true);
+            } catch (err) {
+                console.error("Start Error:", err);
+                setStatus(`Error: ${err.message}`);
+            }
+        }
+
+        function stopStreaming() {
+            setStatus("Stopping...", false);
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            if (pc) {
+                pc.close();
+                pc = null;
+            }
+            document.getElementById('video').srcObject = null;
+            setStatus("Idle / Stopped");
+        }
+
+        // Global control listener
+        callDoc.onSnapshot((snapshot) => {
+            const data = snapshot.data();
+            if (data) {
+                if (data.active === true && !localStream) {
+                    startStreaming();
+                } else if (data.active === false && localStream) {
+                    stopStreaming();
+                }
+            }
+        });
+
+        setStatus("Ready (Waiting for Mobile)");
+    </script>
+</body>
+</html>

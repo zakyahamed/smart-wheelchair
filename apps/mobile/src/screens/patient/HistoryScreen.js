@@ -218,6 +218,13 @@ export default function HistoryScreen({ navigation }) {
 
         <TouchableOpacity
           style={styles.secondaryButton}
+          onPress={() => navigation.navigate("Webcam")}
+        >
+          <Text style={styles.secondaryButtonText}>View Live Webcam</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
           onPress={handleCallCaregiver}
         >
           <Text style={styles.secondaryButtonText}>Call Caregiver</Text>

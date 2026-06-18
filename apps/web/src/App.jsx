@@ -6,6 +6,9 @@ import WheelchairManagement from "./pages/WheelchairManagement";
 import Reports from "./pages/Reports";
 import Analytics from "./pages/Analytics";
 
+import WebcamStreamer from "./pages/WebcamStreamer";
+import WebcamViewer from "./pages/WebcamViewer";
+
 const App = () => {
   return (
     <div>
@@ -25,6 +28,9 @@ const App = () => {
         <Link to="/analytics" style={{ marginRight: 10 }}>
           Analytics
         </Link>
+        <Link to="/stream" style={{ marginRight: 10 }}>
+          Webcam Stream
+        </Link>
       </nav>
 
       <main style={{ padding: 16 }}>
@@ -34,6 +40,8 @@ const App = () => {
           <Route path="/wheelchairs" element={<WheelchairManagement />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/stream" element={<WebcamStreamer />} />
+          <Route path="/view" element={<WebcamViewer />} />
         </Routes>
       </main>
     </div>
