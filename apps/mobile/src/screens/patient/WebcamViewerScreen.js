@@ -27,24 +27,36 @@ const VIEWER_HTML = `
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <style>
         body { margin: 0; padding: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+        video { width: 100%; height: 100%; object-fit: contain; background: #222; }
         .status { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 6px; font-size: 12px; z-index: 10; font-family: monospace; }
+        #debug { position: absolute; bottom: 10px; left: 10px; font-size: 10px; color: #aaa; z-index: 10; }
     </style>
 </head>
 <body>
     <div class="status" id="status">Initializing Viewer...</div>
-    <video id="remoteVideo" autoplay playsinline></video>
+    <div id="debug"></div>
+    <video id="remoteVideo" autoplay playsinline muted></video>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <script>
         const setStatus = (msg) => {
-            console.log(msg);
+            console.log("[Viewer] " + msg);
             document.getElementById('status').innerText = msg;
+        };
+
+        const setDebug = (msg) => {
+            const d = document.getElementById('debug');
+            d.innerHTML += msg + "<br/>";
         };
         
         async function start() {
+            const video = document.getElementById('remoteVideo');
+            
+            video.onplay = () => setStatus("Video playing");
+            video.onerror = (e) => setDebug("Video Error: " + video.error.code);
+
             try {
                 firebase.initializeApp(${JSON.stringify(FIREBASE_CONFIG)});
                 const db = firebase.firestore();
@@ -54,11 +66,23 @@ const VIEWER_HTML = `
                     iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
                 });
 
+                const remoteCandidatesBuffer = [];
+
                 pc.ontrack = (event) => {
                     setStatus("Media stream received!");
-                    const video = document.getElementById('remoteVideo');
-                    if (video.srcObject !== event.streams[0]) {
-                        video.srcObject = event.streams[0];
+                    const stream = event.streams[0];
+                    setDebug("Tracks: " + stream.getTracks().length);
+                    
+                    if (video.srcObject !== stream) {
+                        video.srcObject = stream;
+                        console.log("Stream attached to video element");
+                        
+                        // Explicitly call play for some mobile browsers
+                        video.play().catch(e => {
+                            setDebug("Play Error: " + e.message);
+                            // If autoplay fails, it might need a user interaction, 
+                            // but WebView with mediaPlaybackRequiresUserAction={false} should be fine.
+                        });
                     }
                 };
 
@@ -71,24 +95,31 @@ const VIEWER_HTML = `
                 pc.onconnectionstatechange = () => {
                     setStatus("Connection: " + pc.connectionState);
                     if (pc.connectionState === 'connected') {
-                        document.getElementById('status').style.display = 'none';
+                        // Keep status visible for a bit to confirm connection
+                        setTimeout(() => {
+                            // document.getElementById('status').style.display = 'none';
+                        }, 2000);
                     }
                 };
 
-                // 1. Clear previous candidates
+                // 1. Clear previous session data
                 setStatus("Cleaning session...");
                 const oSnapshot = await callDoc.collection('offerCandidates').get();
-                oSnapshot.forEach(doc => doc.ref.delete());
+                for (const doc of oSnapshot.docs) await doc.ref.delete();
                 const aSnapshot = await callDoc.collection('answerCandidates').get();
-                aSnapshot.forEach(doc => doc.ref.delete());
+                for (const doc of aSnapshot.docs) await doc.ref.delete();
+                
+                await callDoc.update({
+                    offer: firebase.firestore.FieldValue.delete(),
+                    answer: firebase.firestore.FieldValue.delete()
+                }).catch(e => console.log("Cleanup update skipped"));
 
-                // 2. Wait a moment for laptop to get its camera ready
-                setStatus("Waiting for laptop camera...");
+                // 2. Wait for laptop
+                setStatus("Waiting for laptop...");
                 await new Promise(r => setTimeout(r, 2000));
 
                 // 3. Create Offer
                 setStatus("Creating offer...");
-                // Add a video transceiver to ensure we receive video
                 pc.addTransceiver('video', { direction: 'recvonly' });
                 
                 const offerDescription = await pc.createOffer();
@@ -104,7 +135,10 @@ const VIEWER_HTML = `
                     const data = snapshot.data();
                     if (!pc.remoteDescription && data && data.answer) {
                         setStatus("Answer received, connecting...");
-                        pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+                        pc.setRemoteDescription(new RTCSessionDescription(data.answer)).then(() => {
+                            remoteCandidatesBuffer.forEach(can => pc.addIceCandidate(can).catch(e => console.error(e)));
+                            remoteCandidatesBuffer.length = 0;
+                        });
                     }
                 });
 
@@ -112,14 +146,19 @@ const VIEWER_HTML = `
                 callDoc.collection('answerCandidates').onSnapshot((snapshot) => {
                     snapshot.docChanges().forEach((change) => {
                         if (change.type === 'added') {
-                            pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                            const candidate = new RTCIceCandidate(change.doc.data());
+                            if (pc.remoteDescription) {
+                                pc.addIceCandidate(candidate).catch(e => console.error(e));
+                            } else {
+                                remoteCandidatesBuffer.push(candidate);
+                            }
                         }
                     });
                 });
 
             } catch (e) {
                 setStatus("Fatal Error: " + e.message);
-                console.error(e);
+                setDebug(e.stack);
             }
         }
 
