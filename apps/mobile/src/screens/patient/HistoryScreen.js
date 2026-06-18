@@ -154,6 +154,13 @@ export default function HistoryScreen({ navigation }) {
         >
           <Text style={styles.secondaryButtonText}>Track Active Request</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() => navigation.navigate("Webcam")}
+        >
+          <Text style={styles.secondaryButtonText}>View Live Webcam</Text>
+        </TouchableOpacity>
       </View>
 
       {/* HISTORY */}

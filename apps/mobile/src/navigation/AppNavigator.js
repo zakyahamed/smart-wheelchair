@@ -14,6 +14,7 @@ import SignUpScreen from "../screens/auth/SignUpScreen";
 import HistoryScreen from "../screens/patient/HistoryScreen";
 import RequestScreen from "../screens/patient/RequestWheelchairScreen";
 import TrackWheelchairScreen from "../screens/patient/TrackWheelchairScreen";
+import WebcamViewerScreen from "../screens/patient/WebcamViewerScreen";
 
 // Caregiver Screens
 import AddPatientScreen from "../screens/caregiver/AddPatientScreen";
@@ -89,6 +90,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Home" component={HistoryScreen} />
             <Stack.Screen name="Request" component={RequestScreen} />
             <Stack.Screen name="Track" component={TrackWheelchairScreen} />
+            <Stack.Screen name="Webcam" component={WebcamViewerScreen} />
           </>
         )}
 
