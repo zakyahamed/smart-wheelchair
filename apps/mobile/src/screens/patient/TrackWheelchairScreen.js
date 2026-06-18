@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   floorPlanImage: {
-    resizeMode: "cover",
+    resizeMode: "contain",
   },
   markerPin: {
     position: "absolute",
