@@ -1,6 +1,8 @@
 import firebase from "firebase/compat/app";
 import "firebase/compat/auth";
 import "firebase/compat/firestore";
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -9,7 +11,7 @@ import {
   FIREBASE_MESSAGING_SENDER_ID,
   FIREBASE_APP_ID,
   FIREBASE_MEASUREMENT_ID,
-} from "../../.env";
+} from "@env";
 
 // Your Firebase configuration
 const firebaseConfig = {
@@ -30,5 +32,7 @@ if (!firebase.apps.length) {
 // Services
 const auth = firebase.auth();
 const db = firebase.firestore();
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 
-export { auth, db, firebase };
+export { auth, db, firebase, app, analytics };

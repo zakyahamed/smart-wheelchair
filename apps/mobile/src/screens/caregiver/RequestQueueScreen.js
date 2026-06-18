@@ -138,6 +138,8 @@ export default function RequestQueueScreen({ navigation }) {
             status: "Available",
             assignedPatient: null,
             activeRequestId: null,
+            location: assignedChair.dockingPosition || assignedChair.location,
+            isOpen: false,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
           },
         );
@@ -206,14 +208,14 @@ export default function RequestQueueScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {item.status === "in_transit" && (
+            {/* {item.status === "in_transit" && (
               <TouchableOpacity
                 style={styles.primaryAction}
                 onPress={() => completeRequest(item)}
               >
                 <Text style={styles.primaryActionText}>Complete</Text>
               </TouchableOpacity>
-            )}
+            )} */}
 
             {["pending", "assigned"].includes(item.status) && (
               <TouchableOpacity
