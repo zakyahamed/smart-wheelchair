@@ -19,7 +19,7 @@
     <p>This page acts as the camera source for the Smart Wheelchair app.</p>
     <div id="status-box" class="status status-off">Status: Idle (Waiting for Mobile)</div>
     <br>
-    <video id="video" autoplay playsinline muted></video>
+    <video id="video" autoplay playsinline muted style="transform: scaleX(-1);"></video>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -43,6 +43,9 @@
 
         let pc = null;
         let localStream = null;
+        let offerUnsub = null;
+        let candidatesUnsub = null;
+        let isStreamingActive = false; // Track our internal state
 
         const setStatus = (msg, active = false) => {
             console.log(`[Status] ${msg}`);
@@ -51,82 +54,124 @@
             box.className = `status ${active ? 'status-on' : 'status-off'}`;
         };
 
-        async function startStreaming() {
-            if (localStream) return;
+        async function initCamera() {
+            if (localStream) return true;
             setStatus("Initializing Camera...", true);
-
             try {
                 localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
                 document.getElementById('video').srcObject = localStream;
-
-                pc = new RTCPeerConnection({
-                    iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
-                });
-
-                // Important: Add tracks BEFORE handling the offer
-                localStream.getTracks().forEach(track => {
-                    console.log("Adding track:", track.kind);
-                    pc.addTrack(track, localStream);
-                });
-
-                const answerCandidates = callDoc.collection('answerCandidates');
-                const offerCandidates = callDoc.collection('offerCandidates');
-
-                pc.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        console.log("Local ICE candidate generated");
-                        answerCandidates.add(event.candidate.toJSON());
-                    }
-                };
-
-                pc.onconnectionstatechange = () => {
-                    setStatus(`Connection: ${pc.connectionState}`, true);
-                    if (pc.connectionState === 'failed') {
-                        setStatus("Connection Failed - Restarting...", false);
-                        stopStreaming();
-                    }
-                };
-
-                // Listen for Offer
-                callDoc.onSnapshot(async (snapshot) => {
-                    const data = snapshot.data();
-                    if (!pc) return;
-
-                    if (!pc.remoteDescription && data && data.offer) {
-                        console.log("Offer received, creating answer...");
-                        try {
-                            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-                            const answerDescription = await pc.createAnswer();
-                            await pc.setLocalDescription(answerDescription);
-
-                            await callDoc.update({
-                                answer: { type: answerDescription.type, sdp: answerDescription.sdp }
-                            });
-                        } catch (e) {
-                            console.error("Error during signaling:", e);
-                        }
-                    }
-                });
-
-                // Listen for Remote Candidates
-                offerCandidates.onSnapshot((snapshot) => {
-                    snapshot.docChanges().forEach((change) => {
-                        if (change.type === 'added' && pc) {
-                            console.log("Remote ICE candidate added");
-                            pc.addIceCandidate(new RTCIceCandidate(change.doc.data()));
-                        }
-                    });
-                });
-
-                setStatus("Broadcasting - Ready for Mobile", true);
+                return true;
             } catch (err) {
-                console.error("Start Error:", err);
-                setStatus(`Error: ${err.message}`);
+                console.error("Camera Error:", err);
+                setStatus(`Camera Error: ${err.message}`);
+                return false;
             }
         }
 
+        async function startStreaming() {
+            if (isStreamingActive) {
+                console.log("Streaming already active, ignoring request.");
+                return;
+            }
+            isStreamingActive = true;
+
+            const cameraReady = await initCamera();
+            if (!cameraReady) {
+                isStreamingActive = false;
+                return;
+            }
+
+            // Reset PeerConnection if it exists
+            if (pc) {
+                console.log("Closing existing peer connection...");
+                pc.close();
+            }
+
+            pc = new RTCPeerConnection({
+                iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }]
+            });
+
+            // Buffer for candidates received before remote description is set
+            const remoteCandidatesBuffer = [];
+
+            localStream.getTracks().forEach(track => {
+                console.log("Adding track:", track.kind);
+                pc.addTrack(track, localStream);
+            });
+
+            const answerCandidates = callDoc.collection('answerCandidates');
+            const offerCandidates = callDoc.collection('offerCandidates');
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log("Local ICE candidate generated");
+                    answerCandidates.add(event.candidate.toJSON());
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (!pc) return;
+                setStatus(`Connection: ${pc.connectionState}`, true);
+                if (pc.connectionState === 'failed') {
+                    setStatus("Connection Failed", false);
+                    isStreamingActive = false;
+                }
+            };
+
+            // Listen for Remote Candidates
+            if (candidatesUnsub) candidatesUnsub();
+            candidatesUnsub = offerCandidates.onSnapshot((snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === 'added') {
+                        const candidate = new RTCIceCandidate(change.doc.data());
+                        if (pc && pc.remoteDescription) {
+                            pc.addIceCandidate(candidate).catch(e => console.error(e));
+                        } else {
+                            remoteCandidatesBuffer.push(candidate);
+                        }
+                    }
+                });
+            });
+
+            // Listen for Offer
+            if (offerUnsub) offerUnsub();
+            offerUnsub = callDoc.onSnapshot(async (snapshot) => {
+                const data = snapshot.data();
+                if (!pc || pc.signalingState === 'closed') return;
+
+                // If we see a new offer (or same offer but we haven't set remote description)
+                if (data && data.offer && !pc.remoteDescription) {
+                    console.log("Offer received, creating answer...");
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+                        
+                        // Process buffered candidates
+                        console.log(`Processing ${remoteCandidatesBuffer.length} buffered candidates`);
+                        remoteCandidatesBuffer.forEach(can => pc.addIceCandidate(can).catch(e => console.error(e)));
+                        remoteCandidatesBuffer.length = 0;
+
+                        const answerDescription = await pc.createAnswer();
+                        await pc.setLocalDescription(answerDescription);
+
+                        await callDoc.update({
+                            answer: { type: answerDescription.type, sdp: answerDescription.sdp }
+                        });
+                        setStatus("Streaming - Connected to Mobile", true);
+                    } catch (e) {
+                        console.error("Error during signaling:", e);
+                        setStatus(`Signaling Error: ${e.message}`);
+                    }
+                }
+            });
+
+            setStatus("Broadcasting - Ready for Mobile", true);
+        }
+
         function stopStreaming() {
+            isStreamingActive = false;
             setStatus("Stopping...", false);
+            if (offerUnsub) offerUnsub();
+            if (candidatesUnsub) candidatesUnsub();
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
@@ -143,9 +188,9 @@
         callDoc.onSnapshot((snapshot) => {
             const data = snapshot.data();
             if (data) {
-                if (data.active === true && !localStream) {
+                if (data.active === true && !isStreamingActive) {
                     startStreaming();
-                } else if (data.active === false && localStream) {
+                } else if (data.active === false && isStreamingActive) {
                     stopStreaming();
                 }
             }

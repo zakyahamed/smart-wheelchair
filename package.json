@@ -1,7 +1,13 @@
 {
   "name": "smart-wheelchair",
   "version": "1.0.0",
-  "main": "index.js",
+  "private": true,
+  "main": "apps/mobile/App.js",
+  "scripts": {
+    "start": "cd apps/mobile && npx expo start",
+    "mobile:start": "cd apps/mobile && npx expo start",
+    "web:start": "cd apps/web && npm run dev"
+  },
   "license": "MIT",
   "dependencies": {
     "@react-navigation/native": "^7.3.0",
