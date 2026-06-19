@@ -7,10 +7,10 @@ import {
   Alert,
   StyleSheet,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
-
+import { SafeAreaView } from "react-native-safe-area-context";
 import * as Location from "expo-location";
-
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/config";
 import { assignOldestPendingRequestToWheelchair } from "../../services/autoAssign";
@@ -24,27 +24,19 @@ export default function AddWheelchairScreen({ navigation }) {
   const [tags, setTags] = useState("");
   const [dockingLocation, setDockingLocation] = useState("Toilet");
 
-  const [location, setLocation] = useState(null);
-  const [locationText, setLocationText] = useState("No location selected");
+  const [locationText, setLocationText] = useState("No location fetched");
   const [gettingLocation, setGettingLocation] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const dockingOptions = ["Toilet", "Room 1", "Room 2", "Room 3"];
-
-  const [loading, setLoading] = useState(false);
 
   const fetchLocation = async () => {
     try {
       setGettingLocation(true);
-
-      const { status } =
-        await Location.requestForegroundPermissionsAsync();
+      const { status } = await Location.requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
-        Alert.alert(
-          "Permission Required",
-          "Location permission is needed."
-        );
-        setLocationText("Location unavailable");
+        Alert.alert("Permission Required", "Location permission is needed.");
         return;
       }
 
@@ -52,16 +44,7 @@ export default function AddWheelchairScreen({ navigation }) {
         accuracy: Location.Accuracy.High,
       });
 
-      const coords = {
-        latitude: current.coords.latitude,
-        longitude: current.coords.longitude,
-      };
-
-      setLocation(coords);
-
-      setLocationText(
-        `${coords.latitude.toFixed(6)}, ${coords.longitude.toFixed(6)}`
-      );
+      setLocationText(`${current.coords.latitude.toFixed(6)}, ${current.coords.longitude.toFixed(6)}`);
     } catch (error) {
       console.log(error);
       setLocationText("Unable to determine location");
@@ -78,12 +61,7 @@ export default function AddWheelchairScreen({ navigation }) {
 
     try {
       setLoading(true);
-
-      const tagArray = tags
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
-
+      const tagArray = tags.split(",").map(t => t.trim()).filter(Boolean);
       const dockingCoords = await getRoomCoordinates(dockingLocation);
 
       const wheelchairRef = await addDoc(collection(db, "wheelchairs"), {
@@ -92,41 +70,20 @@ export default function AddWheelchairScreen({ navigation }) {
         battery: Number(battery),
         status,
         tags: tagArray,
-
         dockingLocation,
         location: dockingCoords || null,
         dockingPosition: dockingCoords || null,
         locationUpdatedAt: serverTimestamp(),
         isOpen: false,
-
         assignedPatient: null,
         activeRequestId: null,
-
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      const assignedRequestId =
-        status === "Available"
-          ? await assignOldestPendingRequestToWheelchair(wheelchairRef.id)
-          : null;
+      await assignOldestPendingRequestToWheelchair(wheelchairRef.id);
 
-      Alert.alert(
-        "Success",
-        assignedRequestId
-          ? "Wheelchair added and auto-assigned."
-          : "Wheelchair added successfully"
-      );
-
-      setChairId("");
-      setName("");
-      setBattery("");
-      setTags("");
-      setStatus("Available");
-      setDockingLocation("Toilet");
-      setLocation(null);
-      setLocationText("No location selected");
-
+      Alert.alert("Success", "Wheelchair added and ready for assignment.");
       navigation.navigate("CaregiverHome");
     } catch (error) {
       console.error(error);
@@ -137,240 +94,238 @@ export default function AddWheelchairScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backText}>Back</Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backText}>← Back</Text>
+        </TouchableOpacity>
 
-      <Text style={styles.title}>Add Wheelchair</Text>
+        <Text style={styles.title}>Add New Wheelchair</Text>
+        <Text style={styles.subtitle}>Register a new wheelchair unit to the smart fleet.</Text>
 
-      <TextInput
-        placeholder="Chair ID (e.g. WC-101)"
-        value={chairId}
-        onChangeText={setChairId}
-        style={styles.input}
-        placeholderTextColor="#999"
-      />
+        <View style={styles.form}>
+          <Text style={styles.label}>Identifier (ID)</Text>
+          <TextInput
+            placeholder="WC-101"
+            value={chairId}
+            onChangeText={setChairId}
+            style={styles.input}
+          />
 
-      <TextInput
-        placeholder="Wheelchair Name (e.g. ICU Chair 1)"
-        value={name}
-        onChangeText={setName}
-        style={styles.input}
-        placeholderTextColor="#999"
-      />
+          <Text style={styles.label}>Display Name</Text>
+          <TextInput
+            placeholder="Smart Chair A"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
 
-      <TextInput
-        placeholder="Battery %"
-        value={battery}
-        onChangeText={setBattery}
-        keyboardType="numeric"
-        style={styles.input}
-        placeholderTextColor="#999"
-      />
+          <View style={styles.row}>
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={styles.label}>Battery %</Text>
+              <TextInput
+                placeholder="100"
+                value={battery}
+                onChangeText={setBattery}
+                keyboardType="numeric"
+                style={styles.input}
+              />
+            </View>
+            <View style={{ flex: 2 }}>
+              <Text style={styles.label}>Tags (Comma separated)</Text>
+              <TextInput
+                placeholder="ICU, Emergency"
+                value={tags}
+                onChangeText={setTags}
+                style={styles.input}
+              />
+            </View>
+          </View>
 
-      <TextInput
-        placeholder="Tags (comma separated: ICU, Emergency, VIP)"
-        value={tags}
-        onChangeText={setTags}
-        style={styles.input}
-        placeholderTextColor="#999"
-      />
+          <Text style={styles.label}>Initial Docking Station</Text>
+          <View style={styles.optionsGrid}>
+            {dockingOptions.map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.optionCard, dockingLocation === opt && styles.optionCardSelected]}
+                onPress={() => setDockingLocation(opt)}
+              >
+                <Text style={[styles.optionText, dockingLocation === opt && styles.optionTextSelected]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-      {/* LOCATION SECTION */}
-      <TouchableOpacity
-        onPress={fetchLocation}
-        style={styles.locationButton}
-      >
-        {gettingLocation ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.locationButtonText}>
-            Fetch Device Location
-          </Text>
-        )}
-      </TouchableOpacity>
+          <Text style={styles.label}>Operational Status</Text>
+          <View style={styles.optionsGrid}>
+            {["Available", "Charging", "Maintenance"].map((opt) => (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.optionCard, status === opt && styles.optionCardSelected]}
+                onPress={() => setStatus(opt)}
+              >
+                <Text style={[styles.optionText, status === opt && styles.optionTextSelected]}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-      <Text style={styles.locationText}>{locationText}</Text>
+          <View style={styles.locationSection}>
+            <Text style={styles.label}>Current Physical Location</Text>
+            <TouchableOpacity onPress={fetchLocation} style={styles.locationFetch}>
+              <Text style={styles.locationFetchText}>
+                {gettingLocation ? "Detecting..." : "Detect Current Location"}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.locationValue}>{locationText}</Text>
+          </View>
 
-      <Text style={styles.label}>Docking Position</Text>
-      <View style={styles.dockingOptions}>
-        {dockingOptions.map((option) => (
           <TouchableOpacity
-            key={option}
-            style={[
-              styles.dockingOption,
-              dockingLocation === option && styles.dockingOptionActive,
-            ]}
-            onPress={() => setDockingLocation(option)}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleAddWheelchair}
+            disabled={loading}
           >
-            <Text
-              style={[
-                styles.dockingOptionText,
-                dockingLocation === option && styles.dockingOptionTextActive,
-              ]}
-            >
-              {option}
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Register Wheelchair</Text>
+            )}
           </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Status</Text>
-
-      <View style={styles.statusOptions}>
-        {["Available", "Charging", "Maintenance"].map((option) => (
-          <TouchableOpacity
-            key={option}
-            style={[
-              styles.statusOption,
-              status === option && styles.statusOptionActive,
-            ]}
-            onPress={() => setStatus(option)}
-          >
-            <Text
-              style={[
-                styles.statusOptionText,
-                status === option && styles.statusOptionTextActive,
-              ]}
-            >
-              {option}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleAddWheelchair}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Add Wheelchair</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  backButton: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    zIndex: 100,
-  },
-  backText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#007AFF",
-  },
   container: {
     flex: 1,
+    backgroundColor: "#f6f8fb",
+  },
+  scrollContent: {
     padding: 20,
-    justifyContent: "center",
-    backgroundColor: "#fff",
+  },
+  backButton: {
+    marginBottom: 20,
+  },
+  backText: {
+    color: "#1463ff",
+    fontWeight: "700",
+    fontSize: 16,
   },
   title: {
-    fontSize: 26,
-    fontWeight: "bold",
-    marginBottom: 30,
-    textAlign: "center",
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#162033",
+    marginBottom: 8,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e4e7ec",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 15,
-    backgroundColor: "#f9fafb",
+  subtitle: {
+    fontSize: 16,
+    color: "#687386",
+    marginBottom: 30,
+  },
+  form: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
   },
   label: {
-    marginBottom: 5,
-    fontWeight: "bold",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#3d4b63",
+    marginBottom: 8,
+    marginTop: 12,
   },
-
-  locationButton: {
-    backgroundColor: "#1463ff",
+  input: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
     padding: 12,
     borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 10,
+    fontSize: 16,
+    color: "#1e293b",
   },
-  locationButtonText: {
-    color: "#fff",
-    fontWeight: "700",
+  row: {
+    flexDirection: "row",
+    marginTop: 4,
   },
-  locationText: {
-    marginBottom: 15,
-    color: "#555",
-    fontSize: 13,
-  },
-
-  dockingOptions: {
+  optionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 15,
+    marginVertical: 4,
   },
-  dockingOption: {
-    borderWidth: 1,
-    borderColor: "#cfd7e6",
+  optionCard: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: "#f9fbff",
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
-  dockingOptionActive: {
+  optionCardSelected: {
+    backgroundColor: "#1463ff",
     borderColor: "#1463ff",
-    backgroundColor: "#e7f0ff",
   },
-  dockingOptionText: {
-    color: "#3d4b63",
+  optionText: {
+    color: "#475569",
     fontWeight: "600",
+    fontSize: 13,
   },
-  dockingOptionTextActive: {
-    color: "#1463ff",
+  optionTextSelected: {
+    color: "#fff",
   },
-
-  statusOptions: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 20,
-  },
-  statusOption: {
-    borderColor: "#ccc",
-    borderRadius: 8,
+  locationSection: {
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: "#f8fafc",
+    borderRadius: 10,
     borderWidth: 1,
-    flex: 1,
+    borderColor: "#e2e8f0",
+    borderStyle: "dashed",
+  },
+  locationFetch: {
+    backgroundColor: "#e8eefc",
     padding: 10,
-  },
-  statusOptionActive: {
-    backgroundColor: "#e7f3eb",
-    borderColor: "#28a745",
-  },
-  statusOptionText: {
-    color: "#333",
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  statusOptionTextActive: {
-    color: "#1f7a36",
-  },
-  button: {
-    backgroundColor: "#28a745",
-    padding: 15,
     borderRadius: 8,
     alignItems: "center",
   },
+  locationFetchText: {
+    color: "#1463ff",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  locationValue: {
+    textAlign: "center",
+    marginTop: 8,
+    fontSize: 12,
+    color: "#64748b",
+  },
+  button: {
+    backgroundColor: "#1463ff",
+    padding: 18,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 25,
+    shadowColor: "#1463ff",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  buttonDisabled: {
+    backgroundColor: "#94a3b8",
+  },
   buttonText: {
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "700",
+    fontSize: 16,
   },
 });

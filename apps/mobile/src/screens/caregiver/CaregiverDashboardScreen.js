@@ -36,7 +36,6 @@ export default function CaregiverDashboardScreen({ navigation }) {
           firebase
             .firestore()
             .collection("wheelchairs")
-            .where("status", "==", "Available")
             .get(),
         ]);
 
@@ -74,7 +73,9 @@ export default function CaregiverDashboardScreen({ navigation }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Caregiver Home</Text>
-          <Text style={styles.subtitle}>Manage requests, patients, and wheelchairs</Text>
+          <Text style={styles.subtitle}>
+            Manage requests, patients, and wheelchairs
+          </Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
@@ -89,14 +90,20 @@ export default function CaregiverDashboardScreen({ navigation }) {
             <Text style={styles.statValue}>{counts.requests}</Text>
             <Text style={styles.statLabel}>Active Requests</Text>
           </View>
-          <View style={styles.statCard}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate("Wheelchairs")}
+          >
             <Text style={styles.statValue}>{counts.wheelchairs}</Text>
-            <Text style={styles.statLabel}>Available Chairs</Text>
-          </View>
-          <View style={styles.statCard}>
+            <Text style={styles.statLabel}>Wheelchairs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate("Patients")}
+          >
             <Text style={styles.statValue}>{counts.patients}</Text>
             <Text style={styles.statLabel}>My Patients</Text>
-          </View>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -114,12 +121,11 @@ export default function CaregiverDashboardScreen({ navigation }) {
         >
           <Text style={styles.secondaryButtonText}>Manage Patients</Text>
         </TouchableOpacity>
-
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => navigation.navigate("AddWheelchair")}
+          onPress={() => navigation.navigate("Webcam")}
         >
-          <Text style={styles.secondaryButtonText}>Add Wheelchair</Text>
+          <Text style={styles.secondaryButtonText}>View Live Webcam</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -219,15 +219,10 @@ export default function WebcamViewerScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Webcam Control</Text>
+        <Text style={styles.title}>Live Camera Feed</Text>
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.label}>Laptop Camera Remote</Text>
-        <Text style={styles.info}>
-          You can now start and stop the laptop's camera directly from this app. 
-          Make sure the "Laptop Streamer" page is open on your laptop.
-        </Text>
 
         <View style={styles.statusCard}>
           <Text style={styles.statusLabel}>Current Status:</Text>
@@ -245,17 +240,10 @@ export default function WebcamViewerScreen({ navigation }) {
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.buttonText}>
-              Start Laptop Camera
+              View Live Webcam
             </Text>
           )}
         </TouchableOpacity>
-
-        <View style={styles.instructions}>
-          <Text style={styles.instructionTitle}>Instructions:</Text>
-          <Text style={styles.step}>1. Open 'laptop_streamer.html' on your laptop browser.</Text>
-          <Text style={styles.step}>2. Tap 'Start Laptop Camera' above.</Text>
-          <Text style={styles.step}>3. The stream will automatically appear here.</Text>
-        </View>
       </View>
     </SafeAreaView>
   );

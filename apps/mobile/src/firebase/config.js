@@ -41,4 +41,4 @@ isSupported().then((supported) => {
   }
 });
 
-export { auth, db, firebase, app, analytics };
+export { auth, db, firebase, app, analytics, firebaseConfig };
