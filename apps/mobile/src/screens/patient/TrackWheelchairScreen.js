@@ -21,6 +21,12 @@ const statusLabels = {
   cancelled: "Request cancelled",
 };
 
+const MAP_MIN_X = -2.5;
+const MAP_MAX_X = 3.0;
+
+const MAP_MIN_Y = -12.4;
+const MAP_MAX_Y = 0.333;
+
 /* ---------------- HELPERS ---------------- */
 
 const getCoords = (loc) => {
@@ -42,6 +48,23 @@ const formatLocation = (loc) => {
   if (!coords) return "Invalid location";
 
   return `x: ${coords.x.toFixed(2)}, y: ${coords.y.toFixed(2)}`;
+};
+
+const mapToScreen = (loc) => {
+  if (!loc) return null;
+
+  const x = Number(loc.x);
+  const y = Number(loc.y);
+
+  return {
+    x:
+      ((x - MAP_MIN_X) /
+        (MAP_MAX_X - MAP_MIN_X)) * 100,
+
+    y:
+      ((y - MAP_MIN_Y) /
+        (MAP_MAX_Y - MAP_MIN_Y)) * 100,
+  };
 };
 
 /* ---------------- SCREEN ---------------- */
@@ -201,7 +224,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
     );
   }
 
-  const coords = getCoords(wheelchair?.location);
+  const coords = mapToScreen(wheelchair?.location);
 
   /* ---------------- UI ---------------- */
 
@@ -238,8 +261,8 @@ export default function TrackWheelchairScreen({ navigation, route }) {
                   style={[
                     styles.markerPin,
                     {
-                      left: `${Math.min(Math.max(coords.x * 100, 5), 95)}%`,
-                      top: `${Math.min(Math.max(coords.y * 100, 5), 95)}%`,
+                      left: `${Math.min(Math.max(coords.x, 0), 100)}%`,
+                      top: `${Math.min(Math.max(coords.y, 0), 100)}%`,
                     },
                   ]}
                 />
