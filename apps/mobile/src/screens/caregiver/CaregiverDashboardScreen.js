@@ -33,7 +33,14 @@ export default function CaregiverDashboardScreen({ navigation }) {
           firebase
             .firestore()
             .collection("requests")
-            .where("status", "in", ["pending", "assigned", "in_transit"])
+            .where("status", "in", [
+              "pending",
+              "assigned",
+              "pickup_in_transit",
+              "pickup_arrived",
+              "destination_in_transit",
+              "destination_arrived",
+            ])
             .get(),
           firebase
             .firestore()

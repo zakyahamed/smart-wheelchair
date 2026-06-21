@@ -10,13 +10,29 @@ import {
   View,
 } from "react-native";
 import { auth, firebase } from "../../firebase/config";
+import {
+  cancelRequestAndReleaseWheelchair,
+  completeRequestAndReleaseWheelchair,
+} from "../../services/autoAssign";
+import DestinationSelector from "../../components/DestinationSelector";
 
-const statusSteps = ["pending", "assigned", "in_transit", "completed"];
+const statusSteps = [
+  "pending",
+  "assigned",
+  "pickup_in_transit",
+  "pickup_arrived",
+  "destination_in_transit",
+  "destination_arrived",
+  "completed",
+];
 
 const statusLabels = {
   pending: "Waiting for assignment",
   assigned: "Wheelchair assigned",
-  in_transit: "Wheelchair on the way",
+  pickup_in_transit: "Wheelchair coming to pickup",
+  pickup_arrived: "Wheelchair arrived at pickup",
+  destination_in_transit: "Travelling to destination",
+  destination_arrived: "Destination reached",
   completed: "Trip completed",
   cancelled: "Request cancelled",
 };
@@ -73,8 +89,11 @@ export default function TrackWheelchairScreen({ navigation, route }) {
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [doorUpdating, setDoorUpdating] = useState(false);
   const [wheelchair, setWheelchair] = useState(null);
+  const [destinationModalOpen, setDestinationModalOpen] =
+     useState(false);
 
   const handleToggleDoor = async () => {
     if (!wheelchair?.id) return;
@@ -163,7 +182,14 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           const active = snapshot.docs
             .map((d) => ({ id: d.id, ...d.data() }))
             .filter((r) =>
-              ["pending", "assigned", "in_transit"].includes(r.status),
+              [
+                "pending",
+                "assigned",
+                "pickup_in_transit",
+                "pickup_arrived",
+                "destination_in_transit",
+                "destination_arrived",
+              ].includes(r.status),
             )
             .sort(
               (a, b) =>
@@ -193,14 +219,7 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           try {
             setCancelling(true);
 
-            await firebase
-              .firestore()
-              .collection("requests")
-              .doc(request.id)
-              .update({
-                status: "cancelled",
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-              });
+            await cancelRequestAndReleaseWheelchair(request.id);
           } catch (err) {
             Alert.alert("Error", err.message);
           } finally {
@@ -209,6 +228,20 @@ export default function TrackWheelchairScreen({ navigation, route }) {
         },
       },
     ]);
+  };
+
+  const handleComplete = async () => {
+    if (!request?.id || request.status !== "destination_arrived") return;
+
+    try {
+      setCompleting(true);
+      await completeRequestAndReleaseWheelchair(request.id);
+      Alert.alert("Trip completed", "The wheelchair is returning to its docking position.");
+    } catch (err) {
+      Alert.alert("Unable to complete trip", err.message || "Please try again.");
+    } finally {
+      setCompleting(false);
+    }
   };
 
   const activeStepIndex = Math.max(
@@ -231,7 +264,10 @@ export default function TrackWheelchairScreen({ navigation, route }) {
   return (
     <ScrollView 
       style={styles.container}
-      contentContainerStyle={ styles.scrollContent}
+      contentContainerStyle={ {
+        paddingBottom: 120,
+        flexGrow: 1,
+      }}
       showVerticalScrollIndicator= {false}>
       <TouchableOpacity onPress={() => navigation.goBack()}>
         <Text style={styles.backText}>Back</Text>
@@ -300,7 +336,11 @@ export default function TrackWheelchairScreen({ navigation, route }) {
               {request?.wheelchairId || "Waiting for assignment"}
             </Text>
 
-            {['assigned', 'in_transit'].includes(request?.status) && wheelchair ? (
+            {[
+              "pickup_arrived",
+              "destination_in_transit",
+              "destination_arrived",
+            ].includes(request?.status) && wheelchair ? (
               <View style={styles.doorBlock}>
                 <Text style={styles.detailLabel}>Chair status</Text>
                 <Text style={styles.detailValue}>
@@ -327,22 +367,17 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           </View>
 
           {/* DESTINATION */}
-          {["assigned", "in_transit"].includes(request?.status) &&
+          {request?.status === "pickup_arrived" &&
           wheelchair &&
           !wheelchair.isOpen && (
-            <TouchableOpacity
-              style={styles.destinationButton}
-              onPress={() =>
-                navigation.navigate("SelectDestination", {
-                  requestId: request.id,
-                })
-              }
-            >
-              <Text style={styles.destinationButtonText}>
-                Select Destination
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.destinationButton}
+            onPress={() => setDestinationModalOpen(true)}
+          >
+            <Text style={styles.destinationButtonText}>
+              Select Destination
+            </Text>
+          </TouchableOpacity>)}
           
           {/* TIMELINE */}
           {request?.status !== "cancelled" && (
@@ -368,22 +403,25 @@ export default function TrackWheelchairScreen({ navigation, route }) {
             </View>
           )}
 
-          {request?.status === "arrived" &&
-            wheelchair &&
-            !wheelchair.isOpen && (
-
-              <TouchableOpacity
-                style={styles.doorButton}
-                onPress={handleToggleDoor}
-              >
-                <Text style={styles.doorButtonText}>
-                  Open Chair
-                </Text>
-              </TouchableOpacity>
-            )}
+          {request?.status === "destination_arrived" && (
+            <TouchableOpacity
+              disabled={completing}
+              style={[
+                styles.destinationButton,
+                completing && styles.cancelButtonDisabled,
+              ]}
+              onPress={handleComplete}
+            >
+              {completing ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.destinationButtonText}>Complete Trip</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           {/* CANCEL */}
-          {["pending", "assigned"].includes(request?.status) && (
+          {["pending", "assigned", 'pickup_in_transit', 'destination_in_transit', 'pickup_arrived' ].includes(request?.status) && (
             <TouchableOpacity
               disabled={cancelling}
               style={[
@@ -401,6 +439,12 @@ export default function TrackWheelchairScreen({ navigation, route }) {
           )}
         </View>
       )}
+
+      <DestinationSelector
+      requestId={request?.id}
+      visible={destinationModalOpen}
+      onClose={() => setDestinationModalOpen(false)}
+    />
     </ScrollView>
   );
 }
@@ -478,7 +522,10 @@ const styles = StyleSheet.create({
 
   pending: { backgroundColor: "#fff3cd", color: "#7a5800" },
   assigned: { backgroundColor: "#dbeafe", color: "#1d4ed8" },
-  in_transit: { backgroundColor: "#dcfce7", color: "#166534" },
+  pickup_in_transit: { backgroundColor: "#dcfce7", color: "#166534" },
+  pickup_arrived: { backgroundColor: "#ede9fe", color: "#6d28d9" },
+  destination_in_transit: { backgroundColor: "#dcfce7", color: "#166534" },
+  destination_arrived: { backgroundColor: "#d1fae5", color: "#047857" },
   completed: { backgroundColor: "#e5e7eb", color: "#374151" },
   cancelled: { backgroundColor: "#fee2e2", color: "#991b1b" },
 

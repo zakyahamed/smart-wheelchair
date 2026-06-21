@@ -71,7 +71,14 @@ export default function HistoryScreen({ navigation }) {
 
           // get latest active request
           const active = items.find((r) =>
-            ["pending", "assigned", "in_transit"].includes(r.status),
+            [
+              "pending",
+              "assigned",
+              "pickup_in_transit",
+              "pickup_arrived",
+              "destination_in_transit",
+              "destination_arrived",
+            ].includes(r.status),
           );
 
           setLatestRequest(active || null);
@@ -371,6 +378,22 @@ const styles = StyleSheet.create({
   in_transit: {
     backgroundColor: "#dcfce7",
     color: "#166534",
+  },
+  pickup_in_transit: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  pickup_arrived: {
+    backgroundColor: "#ede9fe",
+    color: "#6d28d9",
+  },
+  destination_in_transit: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  destination_arrived: {
+    backgroundColor: "#d1fae5",
+    color: "#047857",
   },
   completed: {
     backgroundColor: "#e5e7eb",

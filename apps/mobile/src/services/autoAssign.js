@@ -8,7 +8,9 @@ const getTime = (value) => value?.toMillis?.() || 0;
 const getLocationCoords = (location) => {
   if (!location) return null;
   if (location.x !== undefined && location.y !== undefined) {
-    return { x: location.x, y: location.y };
+    const x = Number(location.x);
+    const y = Number(location.y);
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null;
   }
   return null;
 };
@@ -18,10 +20,7 @@ const getLocationCoordsAsync = async (location) => {
   if (typeof location === "string") {
     return await getRoomCoordinates(location);
   }
-  if (location.x !== undefined && location.y !== undefined) {
-    return { x: location.x, y: location.y };
-  }
-  return null;
+  return getLocationCoords(location);
 };
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -46,37 +45,105 @@ export async function moveWheelchairToLocation(
   const wheelchair = { id: wheelchairDoc.id, ...wheelchairDoc.data() };
   const startCoords = getLocationCoords(wheelchair.location);
   if (!startCoords) return null;
-  if (startCoords.x === destinationCoords.x && startCoords.y === destinationCoords.y) {
-    return null;
-  }
 
   const steps = options.steps ?? 12;
   const interval = options.interval ?? 400;
+  const requestTransitStatus = options.requestTransitStatus;
+  const requestArrivalStatus = options.requestArrivalStatus;
+  const wheelchairTransitStatus = options.wheelchairTransitStatus || "In Transit";
+  const wheelchairArrivalStatus = options.wheelchairArrivalStatus || "Arrived";
   const requestRef = wheelchair.activeRequestId
     ? db.collection("requests").doc(wheelchair.activeRequestId)
     : null;
 
-  if (requestRef) {
+  if (requestRef && requestTransitStatus) {
     await requestRef.update({
-      status: "in_transit",
+      status: requestTransitStatus,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
   }
 
-  for (let step = 1; step <= steps; step += 1) {
-    const nextLocation = interpolateLocation(startCoords, destinationCoords, step / steps);
+  const isAlreadyAtDestination =
+    startCoords.x === destinationCoords.x && startCoords.y === destinationCoords.y;
 
-    await db.collection("wheelchairs").doc(wheelchairId).update({
-      location: nextLocation,
-      status: "In Transit",
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
+  if (!isAlreadyAtDestination) {
+    for (let step = 1; step <= steps; step += 1) {
+      if (requestRef) {
+        const activeRequest = await requestRef.get();
+        if (!activeRequest.exists || activeRequest.data()?.status === "cancelled") {
+          return false;
+        }
+      }
 
-    if (step < steps) {
-      await sleep(interval);
+      // const nextLocation = interpolateLocation(startCoords, destinationCoords, step / steps);
+
+      // await db.collection("wheelchairs").doc(wheelchairId).update({
+      //   location: nextLocation,
+      //   status: wheelchairTransitStatus,
+      //   updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      // });
+
+      const wheelchairSnapshot = await db
+        .collection("wheelchairs")
+        .doc(wheelchairId)
+        .get();
+
+      if (
+        wheelchairSnapshot.exists &&
+        wheelchairSnapshot.data()?.activeRequestId !==
+          requestRef?.id
+      ) {
+        return false;
+      }
+
+      const nextLocation = interpolateLocation(
+        startCoords,
+        destinationCoords,
+        step / steps
+      );
+
+      await db.collection("wheelchairs").doc(wheelchairId).update({
+        location: nextLocation,
+        status: wheelchairTransitStatus,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (step < steps) {
+        await sleep(interval);
+      }
     }
   }
 
+  if (requestRef) {
+    const activeRequest = await requestRef.get();
+    if (!activeRequest.exists || activeRequest.data()?.status === "cancelled") {
+        await db.collection("wheelchairs").doc(wheelchairId).update({
+          status: "Available",
+          assignedPatient: null,
+          activeRequestId: null,
+          isOpen: false,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+            
+      return false;
+    }
+  }
+
+  const arrivalBatch = db.batch();
+  arrivalBatch.update(db.collection("wheelchairs").doc(wheelchairId), {
+    location: destinationCoords,
+    status: wheelchairArrivalStatus,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+  });
+
+  if (requestRef && requestArrivalStatus) {
+    arrivalBatch.update(requestRef, {
+      status: requestArrivalStatus,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  await arrivalBatch.commit();
   return true;
 };
 
@@ -96,6 +163,9 @@ export async function createRequestWithAutoAssignment({
     .find((wheelchair) => activeWheelchairStatuses.includes(wheelchair.status));
 
   const targetCoords = await getLocationCoordsAsync(location);
+  if (!targetCoords) {
+    throw new Error("Pickup location coordinates are unavailable.");
+  }
 
   const requestData = {
     patientId,
@@ -120,16 +190,18 @@ export async function createRequestWithAutoAssignment({
       status: "In Transit",
       assignedPatient: patientId,
       activeRequestId: requestRef.id,
-      location: targetCoords || availableWheelchair.location,
       updatedAt: now,
     });
   }
 
   await batch.commit();
 
-  if (availableWheelchair) {
-    void moveWheelchairToLocation(availableWheelchair.id, targetCoords || location);
-    void moveWheelchairToLocation(availableWheelchair.id, targetCoords);
+  if (availableWheelchair && targetCoords) {
+    void moveWheelchairToLocation(availableWheelchair.id, targetCoords, {
+      requestTransitStatus: "pickup_in_transit",
+      requestArrivalStatus: "pickup_arrived",
+      wheelchairArrivalStatus: "At Pickup",
+    });
   }
 
   return {
@@ -169,6 +241,9 @@ export async function assignOldestPendingRequestToWheelchair(wheelchairId) {
   }
 
   const targetCoords = await getLocationCoordsAsync(oldestPendingRequest.location);
+  if (!targetCoords) {
+    return null;
+  }
   const now = firebase.firestore.FieldValue.serverTimestamp();
   const batch = db.batch();
 
@@ -184,14 +259,157 @@ export async function assignOldestPendingRequestToWheelchair(wheelchairId) {
     status: "In Transit",
     assignedPatient: oldestPendingRequest.patientId,
     activeRequestId: oldestPendingRequest.id,
-    location: targetCoords || wheelchair.location,
     updatedAt: now,
   });
 
   await batch.commit();
 
   const targetLocation = targetCoords || oldestPendingRequest.location;
-  void moveWheelchairToLocation(wheelchair.id, targetLocation);
+  void moveWheelchairToLocation(wheelchair.id, targetLocation, {
+    requestTransitStatus: "pickup_in_transit",
+    requestArrivalStatus: "pickup_arrived",
+    wheelchairArrivalStatus: "At Pickup",
+  });
 
   return oldestPendingRequest.id;
+}
+
+export async function moveAssignedWheelchairToDestination(requestId, destination) {
+  const db = firebase.firestore();
+  const requestDoc = await db.collection("requests").doc(requestId).get();
+
+  if (!requestDoc.exists) {
+    throw new Error("Request not found.");
+  }
+
+  const request = requestDoc.data();
+  if (!request.wheelchairId) {
+    throw new Error("No wheelchair is assigned to this request.");
+  }
+  if (request.status !== "pickup_arrived") {
+    throw new Error("The wheelchair must arrive at the pickup location first.");
+  }
+
+  const destinationCoords = await getLocationCoordsAsync(destination);
+  if (!destinationCoords) {
+    throw new Error("Destination coordinates are unavailable.");
+  }
+
+  return moveWheelchairToLocation(request.wheelchairId, destinationCoords, {
+    requestTransitStatus: "destination_in_transit",
+    requestArrivalStatus: "destination_arrived",
+    wheelchairArrivalStatus: "At Destination",
+  });
+}
+
+export async function completeRequestAndReleaseWheelchair(requestId) {
+  const db = firebase.firestore();
+  const requestRef = db.collection("requests").doc(requestId);
+  const requestDoc = await requestRef.get();
+
+  if (!requestDoc.exists) {
+    throw new Error("Request not found.");
+  }
+
+  const request = requestDoc.data();
+  if (request.status !== "destination_arrived") {
+    throw new Error("The wheelchair has not reached the destination yet.");
+  }
+
+  const wheelchairId = request.wheelchairId;
+  const wheelchairRef = wheelchairId
+    ? db.collection("wheelchairs").doc(wheelchairId)
+    : null;
+  const wheelchairDoc = wheelchairRef ? await wheelchairRef.get() : null;
+  const wheelchair = wheelchairDoc?.exists ? wheelchairDoc.data() : null;
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  batch.update(requestRef, {
+    status: "completed",
+    queueStatus: "completed",
+    completedAt: now,
+    updatedAt: now,
+  });
+
+  if (wheelchairRef && wheelchair) {
+    batch.update(wheelchairRef, {
+      status: "Returning",
+      assignedPatient: null,
+      activeRequestId: null,
+      isOpen: false,
+      updatedAt: now,
+    });
+  }
+
+  await batch.commit();
+
+  if (!wheelchairRef || !wheelchair) {
+    return true;
+  }
+
+  const dockingPosition = getLocationCoords(wheelchair.dockingPosition);
+  if (dockingPosition) {
+    const returnedToDock = await moveWheelchairToLocation(wheelchairId, dockingPosition, {
+      wheelchairTransitStatus: "Returning",
+      wheelchairArrivalStatus: "Available",
+    });
+
+    if (!returnedToDock) {
+      await wheelchairRef.update({
+        status: "Available",
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+  } else {
+    await wheelchairRef.update({
+      status: "Available",
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  await assignOldestPendingRequestToWheelchair(wheelchairId);
+  return true;
+}
+
+export async function cancelRequestAndReleaseWheelchair(requestId) {
+  const db = firebase.firestore();
+  const requestRef = db.collection("requests").doc(requestId);
+  const requestDoc = await requestRef.get();
+
+  if (!requestDoc.exists) {
+    throw new Error("Request not found.");
+  }
+
+  const request = requestDoc.data();
+  const wheelchairId = request.wheelchairId;
+  const wheelchairRef = wheelchairId
+    ? db.collection("wheelchairs").doc(wheelchairId)
+    : null;
+  const now = firebase.firestore.FieldValue.serverTimestamp();
+  const batch = db.batch();
+
+  batch.update(requestRef, {
+    status: "cancelled",
+    queueStatus: "cancelled",
+    updatedAt: now,
+  });
+
+  if (wheelchairRef) {
+    batch.update(wheelchairRef, {
+      status: "Available",
+      assignedPatient: null,
+      activeRequestId: null,
+      isOpen: false,
+      updatedAt: now,
+    });
+  }
+
+  await batch.commit();
+
+  if (wheelchairId) {
+    await assignOldestPendingRequestToWheelchair(wheelchairId);
+  }
+
+  return true;
 }
