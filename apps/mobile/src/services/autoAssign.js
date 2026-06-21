@@ -88,6 +88,21 @@ export async function moveWheelchairToLocation(
         .doc(wheelchairId)
         .get();
 
+
+        for (const doc of wheelchairs.docs) {
+        const wc = doc.data();
+
+        if (
+          wc.status === "In Transit" &&
+          !wc.activeRequestId &&
+          !wc.assignedPatient
+        ) {
+          await doc.ref.update({
+            status: "Available",
+          });
+        }
+      }
+
       if (
         wheelchairSnapshot.exists &&
         wheelchairSnapshot.data()?.activeRequestId !==
