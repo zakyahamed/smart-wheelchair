@@ -33,7 +33,7 @@ export default function RequestWheelchairButton({ navigation, style }) {
     }
 
     if (!selectedLocation) {
-      Alert.alert("Location required", "Please select a destination.");
+      Alert.alert("Location required", "Please select a pickup location.");
       return;
     }
 
@@ -82,7 +82,7 @@ export default function RequestWheelchairButton({ navigation, style }) {
           <View style={styles.modal}>
             <Text style={styles.modalTitle}>Request Wheelchair</Text>
 
-            <Text style={styles.optionLabel}>Select destination</Text>
+            <Text style={styles.optionLabel}>Select pickup location</Text>
             <View style={styles.locationOptions}>
               {locationOptions.map((option) => (
                 <TouchableOpacity

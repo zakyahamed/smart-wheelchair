@@ -11,6 +11,8 @@
   "license": "MIT",
   "dependencies": {
     "@react-navigation/native": "^7.3.0",
-    "firebase": "^12.14.0"
+    "firebase": "^12.14.0",
+    "react-native-chart-kit": "^6.12.3",
+    "react-native-svg": "^15.15.5"
   }
 }

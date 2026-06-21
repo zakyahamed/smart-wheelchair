@@ -10,14 +10,27 @@ import {
 } from "react-native";
 
 import { firebase } from "../../firebase/config";
-import { assignOldestPendingRequestToWheelchair } from "../../services/autoAssign";
+import {
+  cancelRequestAndReleaseWheelchair,
+  completeRequestAndReleaseWheelchair,
+} from "../../services/autoAssign";
 
-const activeStatuses = ["pending", "assigned", "in_transit"];
+const activeStatuses = [
+  "pending",
+  "assigned",
+  "pickup_in_transit",
+  "pickup_arrived",
+  "destination_in_transit",
+  "destination_arrived",
+];
 
 const statusLabels = {
   pending: "Pending",
   assigned: "Assigned",
-  in_transit: "In Transit",
+  pickup_in_transit: "Going to Pickup",
+  pickup_arrived: "At Pickup",
+  destination_in_transit: "Trip In Transit",
+  destination_arrived: "At Destination",
   completed: "Completed",
   cancelled: "Cancelled",
 };
@@ -36,7 +49,6 @@ const formatLocation = (location) => {
 
 export default function RequestQueueScreen({ navigation }) {
   const [requests, setRequests] = useState([]);
-  const [wheelchairs, setWheelchairs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
 
@@ -67,37 +79,21 @@ export default function RequestQueueScreen({ navigation }) {
         },
       );
 
-    const unsubscribeWheelchairs = firebase
-      .firestore()
-      .collection("wheelchairs")
-      .onSnapshot(
-        (snapshot) => {
-          const list = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-
-          setWheelchairs(list);
-        },
-        (error) => {
-          console.log("Wheelchair list error:", error);
-        },
-      );
-
-    return () => {
-      unsubscribeRequests();
-      unsubscribeWheelchairs();
-    };
+    return unsubscribeRequests;
   }, []);
 
   const updateRequestStatus = async (request, status) => {
     try {
       setUpdatingId(request.id);
 
-      await firebase.firestore().collection("requests").doc(request.id).update({
-        status,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
+      if (status === "cancelled") {
+        await cancelRequestAndReleaseWheelchair(request.id);
+      } else {
+        await firebase.firestore().collection("requests").doc(request.id).update({
+          status,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     } catch (error) {
       console.log("Status update error:", error);
       Alert.alert("Update failed", error.message || "Please try again.");
@@ -107,49 +103,9 @@ export default function RequestQueueScreen({ navigation }) {
   };
 
   const completeRequest = async (request) => {
-    let freedWheelchairId = null;
-
     try {
       setUpdatingId(request.id);
-
-      const batch = firebase.firestore().batch();
-      const requestRef = firebase
-        .firestore()
-        .collection("requests")
-        .doc(request.id);
-
-      const assignedChair = wheelchairs.find(
-        (chair) =>
-          chair.activeRequestId === request.id ||
-          chair.id === request.wheelchairId,
-      );
-
-      batch.update(requestRef, {
-        status: "completed",
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      });
-
-      if (assignedChair) {
-        freedWheelchairId = assignedChair.id;
-
-        batch.update(
-          firebase.firestore().collection("wheelchairs").doc(assignedChair.id),
-          {
-            status: "Available",
-            assignedPatient: null,
-            activeRequestId: null,
-            location: assignedChair.dockingPosition || assignedChair.location,
-            isOpen: false,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          },
-        );
-      }
-
-      await batch.commit();
-
-      if (freedWheelchairId) {
-        await assignOldestPendingRequestToWheelchair(freedWheelchairId);
-      }
+      await completeRequestAndReleaseWheelchair(request.id);
     } catch (error) {
       console.log("Complete request error:", error);
       Alert.alert("Completion failed", error.message || "Please try again.");
@@ -199,23 +155,14 @@ export default function RequestQueueScreen({ navigation }) {
               </View>
             )}
 
-            {item.status === "assigned" && (
-              <TouchableOpacity
-                style={styles.primaryAction}
-                onPress={() => updateRequestStatus(item, "in_transit")}
-              >
-                <Text style={styles.primaryActionText}>Start Trip</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* {item.status === "in_transit" && (
+            {item.status === "destination_arrived" && (
               <TouchableOpacity
                 style={styles.primaryAction}
                 onPress={() => completeRequest(item)}
               >
                 <Text style={styles.primaryActionText}>Complete</Text>
               </TouchableOpacity>
-            )} */}
+            )}
 
             {["pending", "assigned"].includes(item.status) && (
               <TouchableOpacity
@@ -356,6 +303,22 @@ const styles = StyleSheet.create({
   in_transit: {
     backgroundColor: "#dcfce7",
     color: "#166534",
+  },
+  pickup_in_transit: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  pickup_arrived: {
+    backgroundColor: "#ede9fe",
+    color: "#6d28d9",
+  },
+  destination_in_transit: {
+    backgroundColor: "#dcfce7",
+    color: "#166534",
+  },
+  destination_arrived: {
+    backgroundColor: "#d1fae5",
+    color: "#047857",
   },
   detail: {
     color: "#3d4b63",

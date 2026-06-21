@@ -28,7 +28,7 @@ export default function AddWheelchairScreen({ navigation }) {
   const [gettingLocation, setGettingLocation] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const dockingOptions = ["Toilet", "Room 1", "Room 2", "Room 3"];
+  const dockingOptions = ["Room 1", "Room 2", "Room 3","Docking Position"];
 
   const fetchLocation = async () => {
     try {

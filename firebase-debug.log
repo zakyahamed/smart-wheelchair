@@ -1,0 +1,68 @@
+[debug] [2026-06-19T07:12:54.894Z] ----------------------------------------------------------------------
+[debug] [2026-06-19T07:12:54.896Z] Command:       /home/kisali/.nvm/versions/node/v20.19.4/bin/node /home/kisali/.nvm/versions/node/v20.19.4/bin/firebase deploy
+[debug] [2026-06-19T07:12:54.897Z] CLI Version:   15.22.0
+[debug] [2026-06-19T07:12:54.897Z] Platform:      linux
+[debug] [2026-06-19T07:12:54.897Z] Node Version:  v20.19.4
+[debug] [2026-06-19T07:12:54.897Z] Detected Agent: unknown
+[debug] [2026-06-19T07:12:54.898Z] Time:          Fri Jun 19 2026 12:42:54 GMT+0530 (India Standard Time)
+[debug] [2026-06-19T07:12:54.898Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-06-19T07:12:55.688Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-06-19T07:12:55.689Z] > authorizing via signed-in user (kisalithumara2002@gmail.com)
+[debug] [2026-06-19T07:12:55.689Z] [iam] checking project smart-wheelchair-91084 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-06-19T07:12:55.690Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:55.690Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:55.691Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084:testIamPermissions [none]
+[debug] [2026-06-19T07:12:55.691Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084:testIamPermissions  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:12:55.691Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-06-19T07:12:57.256Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084:testIamPermissions 200
+[debug] [2026-06-19T07:12:57.256Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-06-19T07:12:57.257Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:57.257Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:57.257Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/smart-wheelchair-91084/serviceAccounts/smart-wheelchair-91084@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-06-19T07:12:57.257Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/smart-wheelchair-91084/serviceAccounts/smart-wheelchair-91084@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-06-19T07:12:59.094Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/smart-wheelchair-91084/serviceAccounts/smart-wheelchair-91084@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-06-19T07:12:59.094Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/smart-wheelchair-91084/serviceAccounts/smart-wheelchair-91084@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'smart-wheelchair-91084'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-06-19T07:12:59.099Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:59.099Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:12:59.099Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudresourcemanager.googleapis.com [none]
+[debug] [2026-06-19T07:12:59.099Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudresourcemanager.googleapis.com  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:13:00.948Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudresourcemanager.googleapis.com 200
+[debug] [2026-06-19T07:13:00.948Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudresourcemanager.googleapis.com [omitted]
+[debug] [2026-06-19T07:13:00.955Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:00.955Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:00.955Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084 [none]
+[debug] [2026-06-19T07:13:01.305Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084 200
+[debug] [2026-06-19T07:13:01.306Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/smart-wheelchair-91084 {"projectNumber":"88128127316","projectId":"smart-wheelchair-91084","lifecycleState":"ACTIVE","name":"Smart wheelchair","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-06-09T20:49:40.169Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2026-06-19T07:13:01.307Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:01.308Z] Checked if tokens are valid: true, expires at: 1781856522385
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-06-19T07:13:01.308Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:01.308Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:01.308Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com [none]
+[debug] [2026-06-19T07:13:01.308Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:13:01.309Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com [none]
+[debug] [2026-06-19T07:13:01.309Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:13:01.713Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com 200
+[debug] [2026-06-19T07:13:01.714Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com [omitted]
+[warn] ⚠  functions: missing required API cloudbuild.googleapis.com. Enabling now... 
+[debug] [2026-06-19T07:13:01.715Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:01.715Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:01.715Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2026-06-19T07:13:01.715Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com:enable  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:13:03.113Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com 200
+[debug] [2026-06-19T07:13:03.113Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com [omitted]
+[warn] ⚠  artifactregistry: missing required API artifactregistry.googleapis.com. Enabling now... 
+[debug] [2026-06-19T07:13:03.114Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:03.114Z] Checked if tokens are valid: true, expires at: 1781856522385
+[debug] [2026-06-19T07:13:03.114Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2026-06-19T07:13:03.114Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/artifactregistry.googleapis.com:enable  x-goog-user-project=smart-wheelchair-91084
+[debug] [2026-06-19T07:13:03.157Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com:enable 200
+[debug] [2026-06-19T07:13:03.158Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/smart-wheelchair-91084/services/cloudbuild.googleapis.com:enable [omitted]

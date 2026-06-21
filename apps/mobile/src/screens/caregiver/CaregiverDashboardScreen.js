@@ -5,9 +5,11 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ScrollView,
 } from "react-native";
 
-import { auth, firebase } from "../../firebase/config";
+import { auth, firebase ,rtdb} from "../../firebase/config";
+
 
 export default function CaregiverDashboardScreen({ navigation }) {
   const [counts, setCounts] = useState({
@@ -16,6 +18,11 @@ export default function CaregiverDashboardScreen({ navigation }) {
     wheelchairs: 0,
   });
   const [loading, setLoading] = useState(true);
+
+  const [vitals, setVitals] = useState({
+    heartRate: "--",
+    spo2: "--",
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -26,7 +33,14 @@ export default function CaregiverDashboardScreen({ navigation }) {
           firebase
             .firestore()
             .collection("requests")
-            .where("status", "in", ["pending", "assigned", "in_transit"])
+            .where("status", "in", [
+              "pending",
+              "assigned",
+              "pickup_in_transit",
+              "pickup_arrived",
+              "destination_in_transit",
+              "destination_arrived",
+            ])
             .get(),
           firebase
             .firestore()
@@ -64,12 +78,34 @@ export default function CaregiverDashboardScreen({ navigation }) {
     };
   }, [navigation]);
 
+
+  useEffect(() => {
+  const vitalsRef = rtdb.ref("/patients/patient_001/latest");
+
+  vitalsRef.on("value", (snapshot) => {
+    const data = snapshot.val();
+
+    if (data) {
+      setVitals({
+        heartRate: data.heart_rate || "--",
+        spo2: data.spo2 || "--",
+      });
+    }
+  });
+
+  return () => vitalsRef.off();
+}, []);
+
   const handleLogout = async () => {
     await auth.signOut();
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+    style={styles.container}
+    contentContainerStyle={{ paddingBottom: 40 }}
+    showsVerticalScrollIndicator={false}
+  >
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Caregiver Home</Text>
@@ -127,15 +163,49 @@ export default function CaregiverDashboardScreen({ navigation }) {
         >
           <Text style={styles.secondaryButtonText}>View Live Webcam</Text>
         </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.secondaryButton}
+        onPress={() => navigation.navigate("PatientHealth")}
+      >
+        <Text style={styles.secondaryButtonText}>
+          View Patient Health
+        </Text>
+      </TouchableOpacity>
+
       </View>
-    </View>
+
+      {/* <View style={styles.statCard}>
+        
+
+        <Text style={styles.statValue}>
+          ❤️ {vitals.heartRate}
+        </Text>
+
+        <Text style={styles.statLabel}>
+          Heart Rate (BPM)
+        </Text>
+
+        <Text style={styles.statValue}>
+          🩸 {vitals.spo2}
+        </Text>
+
+        <Text style={styles.statLabel}>
+          SpO₂ (%)
+        </Text>
+      </View> */}
+
+    </ScrollView>
+    
+
+
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f6f8fb",
+    backgroundColor: "#99a1ad",
     padding: 20,
     paddingTop: 56,
   },

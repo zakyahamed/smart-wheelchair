@@ -22,7 +22,8 @@ import CaregiverDashboardScreen from "../screens/caregiver/CaregiverDashboardScr
 import ManagePatientsScreen from "../screens/caregiver/ManagePatientsScreen";
 import RequestQueueScreen from "../screens/caregiver/RequestQueueScreen";
 import WheelchairManagementScreen from "../screens/caregiver/WheelchairManagementScreen";
-import SelectDestinationScreen from "../screens/patient/SelectDestinationScreen";
+//import SelectDestinationScreen from "../screens/patient/SelectDestinationScreen";
+import PatientHealthScreen from "../screens/caregiver/PatientHealthScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -91,7 +92,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Home" component={HistoryScreen} />
             <Stack.Screen name="Track" component={TrackWheelchairScreen} />
             <Stack.Screen name="Webcam" component={WebcamViewerScreen} />
-            <Stack.Screen name="SelectDestination" component={SelectDestinationScreen}/>
+            {/* afStack.Screen name="SelectDestination" component={SelectDestinationScreen}/> */}
           </>
         )}
 
@@ -105,6 +106,7 @@ export default function AppNavigator() {
             <Stack.Screen name="Wheelchairs" component={WheelchairManagementScreen} />
             <Stack.Screen name="AddWheelchair" component={AddWheelchairScreen} />
             <Stack.Screen name="Webcam" component={WebcamViewerScreen} />
+            <Stack.Screen name="PatientHealth" component={PatientHealthScreen} />
           </>
         )}
 
