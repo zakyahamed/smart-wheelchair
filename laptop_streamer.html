@@ -6,20 +6,89 @@
     <title>Laptop Streamer - Smart Wheelchair</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f0f2f5; color: #333; }
-        #video { width: 100%; max-width: 640px; border-radius: 12px; background: #000; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+        #video { width: 100%; max-width: 640px; border-radius: 12px; background: #000; margin-top: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: transform 0.3s ease; }
         .status { margin: 10px; padding: 12px 20px; border-radius: 8px; display: inline-block; font-weight: bold; transition: all 0.3s; }
         .status-off { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
         .status-on { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
         h1 { color: #1e293b; }
         p { color: #64748b; }
+
+        /* Camera selection & control panel */
+        .controls {
+            margin: 20px auto;
+            max-width: 640px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            background: #fff;
+            padding: 12px 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        label {
+            font-weight: bold;
+            color: #475569;
+            font-size: 14px;
+        }
+        select {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            font-size: 14px;
+            color: #334155;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        select:focus {
+            border-color: #3b82f6;
+        }
+        .checkbox-label {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #475569;
+        }
+        .checkbox-label input {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
     </style>
 </head>
 <body>
     <h1>Laptop Streamer</h1>
     <p>This page acts as the camera source for the Smart Wheelchair app.</p>
     <div id="status-box" class="status status-off">Status: Idle (Waiting for Mobile)</div>
-    <br>
-    <video id="video" autoplay playsinline muted style="transform: scaleX(-1);"></video>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="camera-select">Camera:</label>
+            <select id="camera-select">
+                <option value="">Detecting cameras...</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label class="checkbox-label">
+                <input type="checkbox" id="mirror-checkbox" checked> Mirror Video
+            </label>
+        </div>
+    </div>
+
+    <video id="video" autoplay playsinline muted></video>
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -46,6 +115,7 @@
         let offerUnsub = null;
         let candidatesUnsub = null;
         let isStreamingActive = false; // Track our internal state
+        let currentDeviceId = null;
 
         const setStatus = (msg, active = false) => {
             console.log(`[Status] ${msg}`);
@@ -54,12 +124,75 @@
             box.className = `status ${active ? 'status-on' : 'status-off'}`;
         };
 
+        // Mirroring control
+        function updateMirroring() {
+            const video = document.getElementById('video');
+            const mirrorCheckbox = document.getElementById('mirror-checkbox');
+            if (video && mirrorCheckbox) {
+                video.style.transform = mirrorCheckbox.checked ? 'scaleX(-1)' : 'none';
+            }
+        }
+
+        // Detect and list video input devices (cameras)
+        async function updateCameraList() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                const select = document.getElementById('camera-select');
+                if (!select) return;
+                
+                const previouslySelected = select.value;
+                select.innerHTML = '';
+                
+                if (videoDevices.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.text = 'No cameras found';
+                    select.appendChild(option);
+                    return;
+                }
+                
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${index + 1}`;
+                    select.appendChild(option);
+                });
+                
+                if (previouslySelected && [...select.options].some(opt => opt.value === previouslySelected)) {
+                    select.value = previouslySelected;
+                } else if (videoDevices.length > 0) {
+                    if (!currentDeviceId) {
+                        currentDeviceId = videoDevices[0].deviceId;
+                    }
+                    select.value = currentDeviceId;
+                }
+            } catch (err) {
+                console.error("Error enumerating devices:", err);
+            }
+        }
+
         async function initCamera() {
-            if (localStream) return true;
+            if (localStream) {
+                const activeTrack = localStream.getVideoTracks()[0];
+                const activeSettings = activeTrack ? activeTrack.getSettings() : {};
+                if (activeSettings.deviceId === currentDeviceId) {
+                    return true;
+                }
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+            
             setStatus("Initializing Camera...", true);
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const constraints = {
+                    video: currentDeviceId ? { deviceId: { exact: currentDeviceId } } : true,
+                    audio: false
+                };
+                localStream = await navigator.mediaDevices.getUserMedia(constraints);
                 document.getElementById('video').srcObject = localStream;
+                
+                await updateCameraList();
                 return true;
             } catch (err) {
                 console.error("Camera Error:", err);
@@ -194,6 +327,50 @@
                     stopStreaming();
                 }
             }
+        });
+
+        // Setup control listeners after DOM loads
+        window.addEventListener('DOMContentLoaded', () => {
+            const mirrorCheckbox = document.getElementById('mirror-checkbox');
+            if (mirrorCheckbox) {
+                mirrorCheckbox.addEventListener('change', updateMirroring);
+            }
+
+            const cameraSelect = document.getElementById('camera-select');
+            if (cameraSelect) {
+                cameraSelect.addEventListener('change', async (event) => {
+                    currentDeviceId = event.target.value;
+                    
+                    // Auto-disable mirroring if it looks like an external or rear camera
+                    const selectedOption = event.target.options[event.target.selectedIndex];
+                    const label = selectedOption ? selectedOption.text.toLowerCase() : '';
+                    if (mirrorCheckbox) {
+                        if (label.includes('external') || label.includes('usb') || label.includes('rear') || label.includes('back') || label.includes('cam link') || label.includes('obs')) {
+                            mirrorCheckbox.checked = false;
+                        } else {
+                            mirrorCheckbox.checked = true;
+                        }
+                    }
+                    updateMirroring();
+
+                    if (isStreamingActive) {
+                        const cameraReady = await initCamera();
+                        if (cameraReady && pc && localStream) {
+                            const newTrack = localStream.getVideoTracks()[0];
+                            const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                            if (sender && newTrack) {
+                                console.log("Replacing WebRTC video track with new camera...");
+                                await sender.replaceTrack(newTrack);
+                            }
+                        }
+                    } else {
+                        await initCamera();
+                    }
+                });
+            }
+
+            updateCameraList();
+            updateMirroring();
         });
 
         setStatus("Ready (Waiting for Mobile)");
