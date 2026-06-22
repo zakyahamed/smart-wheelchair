@@ -89,9 +89,13 @@ export default function HistoryScreen({ navigation }) {
 
   useEffect(() => {
     const userId = auth.currentUser?.uid;
-    if (!userId) return;
+    if (!userId) {
+      console.log("Caregiver lookup: No authenticated user ID found.");
+      return;
+    }
 
     const fetchCaregiverContact = async () => {
+      console.log("Caregiver lookup: Fetching caregiver contact for user ID:", userId);
       try {
         const patientSnapshot = await firebase
           .firestore()
@@ -100,11 +104,19 @@ export default function HistoryScreen({ navigation }) {
           .limit(1)
           .get();
 
-        if (patientSnapshot.empty) return;
+        if (patientSnapshot.empty) {
+          console.log(`Caregiver lookup: No patient document found in Firestore for UID ${userId}`);
+          return;
+        }
 
         const patientData = patientSnapshot.docs[0].data();
         const caregiverId = patientData?.caregiverId;
-        if (!caregiverId) return;
+        console.log(`Caregiver lookup: Found patient document. caregiverId is: ${caregiverId}`);
+
+        if (!caregiverId) {
+          console.log(`Caregiver lookup: Patient document for UID ${userId} has no 'caregiverId' field.`);
+          return;
+        }
 
         const caregiverDoc = await firebase
           .firestore()
@@ -112,9 +124,13 @@ export default function HistoryScreen({ navigation }) {
           .doc(caregiverId)
           .get();
 
-        if (!caregiverDoc.exists) return;
+        if (!caregiverDoc.exists) {
+          console.log(`Caregiver lookup: Caregiver document with ID ${caregiverId} does not exist in 'caregivers' collection.`);
+          return;
+        }
 
         const caregiverData = caregiverDoc.data();
+        console.log("Caregiver lookup: Found caregiver document successfully:", caregiverData);
         setCaregiverPhone(caregiverData?.phone || null);
         setCaregiverName(caregiverData?.email || caregiverData?.uid || null);
       } catch (err) {
@@ -126,6 +142,7 @@ export default function HistoryScreen({ navigation }) {
   }, []);
 
   const handleCallCaregiver = async () => {
+    console.log("Call Caregiver action initiated. Current state - caregiverPhone:", caregiverPhone, "caregiverName:", caregiverName);
     if (!caregiverPhone) {
       const message = caregiverName
         ? `Caregiver ${caregiverName} has no phone number configured.`
